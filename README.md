@@ -80,6 +80,27 @@ See `sql/schema.sql` for the full DDL.
 
 ## Setup
 
+Start by cloning both repos into the same parent folder. This matters because
+the scripts look for `../riscv-unified-db` relative to this project.
+
+```bash
+mkdir RISC-V
+cd RISC-V
+
+git clone https://github.com/riscv/riscv-unified-db.git
+git clone https://github.com/SatnamCodes/risc-v-knowledge-db.git risc-v-db
+
+cd risc-v-db
+```
+
+You should end up with:
+
+```text
+RISC-V/
+  risc-v-db/
+  riscv-unified-db/
+```
+
 Create a Postgres database:
 
 ```bash
