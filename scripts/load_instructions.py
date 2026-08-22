@@ -1,17 +1,12 @@
 import json
-import psycopg2
 from pathlib import Path
+
+from db import get_connection
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_FILE = PROJECT_ROOT / "data" / "instructions.json"
 
-conn = psycopg2.connect(
-    host="localhost",
-    dbname="riscv_knowledge_db",
-    user="totallynotsatnam",
-    password="riscv123"
-)
-
+conn = get_connection()
 cur = conn.cursor()
 
 with open(DATA_FILE, "r", encoding="utf-8") as f:
@@ -84,7 +79,9 @@ for inst in instructions:
             inst.get("long_name"),
             str(inst.get("assembly")),
             inst.get("description"),
-            inst.get("format"),
+            json.dumps(inst.get("format"))
+                if inst.get("format") is not None
+                else None,
             inst.get("kind"),
             json.dumps(inst.get("encoding"))
                 if inst.get("encoding") is not None
@@ -123,12 +120,6 @@ for inst in instructions:
     # -----------------------------------
     # Hints
     # -----------------------------------
-    for key, value in inst.items():
-        if isinstance(value, dict):     
-            print("\nDICT FOUND")
-            print(key)
-            print(value)
-            print(type(value))
     for hint in inst.get("hints", []):
 
         cur.execute(

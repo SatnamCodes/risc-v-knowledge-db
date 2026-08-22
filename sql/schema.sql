@@ -46,7 +46,7 @@ CREATE TABLE instructions (
     assembly TEXT,
     description TEXT,
 
-    format VARCHAR(100),
+    format TEXT,
     kind VARCHAR(100),
 
     encoding TEXT,
@@ -100,11 +100,11 @@ CREATE TABLE csrs (
 
     priv_mode VARCHAR(10),
 
-    length INTEGER,
+    length VARCHAR(20),
 
     writable BOOLEAN,
 
-    virtual_address BOOLEAN,
+    virtual_address INTEGER,
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

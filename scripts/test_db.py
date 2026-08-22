@@ -1,12 +1,6 @@
-import psycopg2
+from db import get_connection
 
-conn = psycopg2.connect(
-    host="localhost",
-    dbname="riscv_knowledge_db",
-    user="totallynotsatnam",
-    password="riscv123"
-)
-
+conn = get_connection()
 cur = conn.cursor()
 
 cur.execute("SELECT version();")

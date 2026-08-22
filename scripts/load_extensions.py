@@ -1,18 +1,35 @@
 import json
-import psycopg2
 from pathlib import Path
+
+from db import get_connection
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 DATA_FILE = PROJECT_ROOT / "data" / "extensions.json"
 
-conn = psycopg2.connect(
-    host="localhost",
-    dbname="riscv_knowledge_db",
-    user="totallynotsatnam",
-    password="riscv123"
-)
 
+def find_required_extensions(node):
+    """Recursively pull extension names out of a requirements block,
+    which can be a bare {"extension": {...}} or nested under
+    allOf/anyOf/oneOf/not."""
+    names = []
+
+    if isinstance(node, dict):
+        ext = node.get("extension")
+        if isinstance(ext, dict) and ext.get("name"):
+            names.append(ext["name"])
+
+        for key in ("allOf", "anyOf", "oneOf"):
+            for child in node.get(key, []):
+                names.extend(find_required_extensions(child))
+
+        if "not" in node:
+            names.extend(find_required_extensions(node["not"]))
+
+    return names
+
+
+conn = get_connection()
 cur = conn.cursor()
 
 with open(DATA_FILE, "r", encoding="utf-8") as f:
@@ -71,6 +88,20 @@ for ext in extensions:
             version.get("version"),
             version.get("state"),
             version.get("ratification_date")
+        ))
+
+    for required_name in find_required_extensions(ext.get("requirements")):
+
+        cur.execute("""
+            INSERT INTO extension_requirements (
+                extension_id,
+                required_extension
+            )
+            VALUES (%s,%s)
+        """,
+        (
+            extension_id,
+            required_name
         ))
 
     count += 1

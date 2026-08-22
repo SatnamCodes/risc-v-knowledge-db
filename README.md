@@ -43,13 +43,18 @@ risc-v-db/
     instructions.json
     csrs.json
   scripts/
+    db.py
     extract_extensions.py
     extract_instructions.py
     extract_csrs.py
     load_extensions.py
     load_instructions.py
+    load_csrs.py
+    query.py
+    verify_pipeline.py
     inventory.py
     profile_json.py
+    dev/            # one-off exploration scripts used while reverse-engineering the YAML shape
   sql/
     schema.sql
     queries.sql
