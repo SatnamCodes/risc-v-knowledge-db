@@ -118,12 +118,17 @@ Install Python dependencies:
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install pyyaml psycopg2-binary
+pip install -r requirements.txt
 ```
 
-The loader scripts currently use a local Postgres connection in the script
-body. Edit `scripts/load_extensions.py` and `scripts/load_instructions.py` if
-your database name, user, or password differ.
+Copy `.env.example` to `.env` and fill in your local Postgres connection
+details (host, database, user, password). `scripts/db.py` loads this file for
+every loader and query script, so nothing is hardcoded in the scripts
+themselves. `.env` is gitignored.
+
+```bash
+cp .env.example .env
+```
 
 ## Generate Data
 
@@ -146,14 +151,37 @@ python scripts/profile_json.py
 
 ## Load Postgres
 
-Load extensions first, because instructions can reference them:
+Load extensions first, because instructions reference them by name:
 
 ```bash
 python scripts/load_extensions.py
 python scripts/load_instructions.py
+python scripts/load_csrs.py
 ```
 
-CSR extraction is present. A Postgres CSR loader is the obvious next piece.
+Then sanity-check row counts against expected minimums:
+
+```bash
+python scripts/verify_pipeline.py
+```
+
+## Query the Data
+
+`sql/queries.sql` has example SQL for the questions this project set out to
+answer (which extension defines an instruction, CSRs by privilege mode, which
+instructions have pseudoinstructions, extension dependency chains, etc.):
+
+```bash
+psql riscv_knowledge_db -f sql/queries.sql
+```
+
+For a quick lookup without writing SQL, there's also a small CLI:
+
+```bash
+python scripts/query.py instruction addi
+python scripts/query.py csr mstatus
+python scripts/query.py extension Zfa
+```
 
 ## Notes
 
