@@ -56,8 +56,11 @@
   .hero{
     position:relative;
     min-height:100vh;
-    display:flex;
+    display:grid;
+    grid-template-columns:minmax(380px,720px) minmax(0,1fr);
     align-items:center;
+    column-gap:clamp(1rem,3vw,3rem);
+    padding:0 clamp(1.5rem,4vw,4rem);
     overflow:hidden;
     border-bottom:1px solid var(--line);
     background:
@@ -65,6 +68,10 @@
       linear-gradient(90deg, var(--line-soft) 1px, transparent 1px) 0 0/48px 48px,
       var(--bg);
     background-blend-mode:normal;
+  }
+
+  @media (max-width:880px){
+    .hero{ grid-template-columns:1fr; min-height:auto; padding-top:6rem; padding-bottom:2.5rem; row-gap:2.5rem; }
   }
 
   .hero::before{
@@ -77,15 +84,13 @@
 
   .hero-inner{
     position:relative;
-    width:100%;
-    max-width:1280px;
-    margin:0 auto;
-    padding:6rem 1.75rem 4rem;
-    display:grid;
-    gap:2rem;
+    padding:6rem 0 4rem;
   }
 
+  @media (max-width:880px){ .hero-inner{ padding:0; } }
+
   .hero-copy{ max-width:34ch; }
+  @media (min-width:881px){ .hero-copy{ max-width:none; } }
 
   .wordmark{
     display:flex;
@@ -108,7 +113,7 @@
     margin-top:1.1rem;
     color:var(--muted);
     font-size:1.05rem;
-    max-width:36ch;
+    max-width:42ch;
   }
 
   .hero .cta{
@@ -131,7 +136,7 @@
   .hero .cta:hover{ border-color:var(--accent); color:var(--accent); }
   .hero .cta svg{ width:12px; height:12px; }
 
-  .schematic-svg{ width:100%; height:auto; display:block; overflow:visible; }
+  .schematic-svg{ width:100%; height:100%; max-height:100vh; display:block; overflow:hidden; }
   .schematic-svg .draw{ fill:none; stroke:var(--fg); stroke-width:1.1; }
   .schematic-svg .draw-soft{ fill:none; stroke:var(--line); stroke-width:1; }
   .schematic-svg .fill-die{ fill:var(--bg2); stroke:var(--fg); stroke-width:1.1; }
@@ -141,6 +146,24 @@
   .schematic-svg text{ font-family:var(--mono); fill:var(--muted); }
   .schematic-svg text.label-strong{ fill:var(--fg); }
   .schematic-svg .tick{ stroke:var(--fg); stroke-width:1; }
+
+  .schematic-svg .layer{ transform-box:fill-box; transform-origin:50% 50%; }
+  .schematic-svg .layer-lid{ animation:assembleFromAbove .9s cubic-bezier(.2,.7,.2,1) both; }
+  .schematic-svg .layer-die{ animation:assembleFade .8s ease .18s both; }
+  .schematic-svg .layer-sub{ animation:assembleFromBelow .9s cubic-bezier(.2,.7,.2,1) .12s both; }
+  .schematic-svg .schem-lines{ animation:linesIn .6s ease .75s both; }
+  .schematic-svg .schem-labels{ animation:linesIn .6s ease .95s both; }
+
+  @keyframes assembleFromAbove{ from{ opacity:0; transform:translateY(-26px); } to{ opacity:1; transform:translateY(0); } }
+  @keyframes assembleFromBelow{ from{ opacity:0; transform:translateY(26px); } to{ opacity:1; transform:translateY(0); } }
+  @keyframes assembleFade{ from{ opacity:0; transform:scale(0.96); } to{ opacity:1; transform:scale(1); } }
+  @keyframes linesIn{ from{ opacity:0; } to{ opacity:1; } }
+
+  @media (prefers-reduced-motion: reduce){
+    .schematic-svg .layer, .schematic-svg .schem-lines, .schematic-svg .schem-labels{
+      animation:none !important; opacity:1 !important; transform:none !important;
+    }
+  }
 
   /* ---------- section scaffolding ---------- */
   section{ padding:5.5rem 0; border-bottom:1px solid var(--line); }
@@ -471,8 +494,17 @@
   }
   footer .wrap{ display:flex; justify-content:space-between; flex-wrap:wrap; gap:0.75rem; }
 
+  /* ---------- scroll reveal ---------- */
+  .reveal{
+    opacity:0;
+    transform:translateY(18px);
+    transition:opacity .6s ease, transform .6s ease;
+  }
+  .reveal.is-visible{ opacity:1; transform:translateY(0); }
+
   @media (prefers-reduced-motion: reduce){
     html{ scroll-behavior:auto; }
+    .reveal{ opacity:1; transform:none; transition:none; }
   }
 </style>
 </head>
@@ -482,13 +514,13 @@
   <div class="hero-inner">
     <div class="hero-copy">
       <div class="wordmark"><span class="dot"></span>risc&#8209;v&#8209;db</div>
-      <h1>The RISC&#8209;V ISA,<br>modeled as data.</h1>
+      <h1>The RISC&#8209;V ISA, modeled as data.</h1>
       <p class="dek">A pipeline that turns 1,700+ specification files &mdash; every instruction, extension, and register &mdash; into a normalized, queryable PostgreSQL database.</p>
       <a class="cta" href="#graph"><svg viewBox="0 0 12 12"><path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.4"/></svg> explore an extension</a>
     </div>
   </div>
 
-  <svg class="schematic-svg" viewBox="0 0 1500 1000" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Exploded schematic of a RISC-V processor package, its die annotated with decode, fetch, ALU, vector, load/store, and CSR file blocks, connecting to the project pipeline stages extract, normalize, load, query, and verify.">
+  <svg class="schematic-svg" viewBox="0 0 1700 1000" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Exploded schematic of a RISC-V processor package, its die annotated with decode, fetch, ALU, vector, load/store, and CSR file blocks, connecting to the project pipeline stages extract, normalize, load, query, and verify.">
     <g transform="translate(560,10)">
 
       <g transform="rotate(18 450 500)">
@@ -496,58 +528,64 @@
         <line class="draw-soft" x1="580" y1="40" x2="580" y2="960"/>
         <line class="draw-soft" x1="450" y1="10" x2="450" y2="960"/>
 
-        <rect class="fill-die" x="320" y="40" width="260" height="260"/>
-        <rect class="draw-soft" x="345" y="65" width="210" height="210"/>
-        <line class="draw" x1="320" y1="40" x2="300" y2="20"/>
-        <g class="draw-soft">
-          <line x1="500" y1="60" x2="560" y2="60"/>
-          <line x1="500" y1="72" x2="560" y2="72"/>
-          <line x1="500" y1="84" x2="560" y2="84"/>
-          <line x1="500" y1="96" x2="560" y2="96"/>
-          <line x1="500" y1="108" x2="560" y2="108"/>
+        <g class="layer layer-lid">
+          <rect class="fill-die" x="320" y="40" width="260" height="260"/>
+          <rect class="draw-soft" x="345" y="65" width="210" height="210"/>
+          <line class="draw" x1="320" y1="40" x2="300" y2="20"/>
+          <g class="draw-soft">
+            <line x1="500" y1="60" x2="560" y2="60"/>
+            <line x1="500" y1="72" x2="560" y2="72"/>
+            <line x1="500" y1="84" x2="560" y2="84"/>
+            <line x1="500" y1="96" x2="560" y2="96"/>
+            <line x1="500" y1="108" x2="560" y2="108"/>
+          </g>
+          <circle class="draw" cx="450" cy="170" r="3"/>
         </g>
-        <circle class="draw" cx="450" cy="170" r="3"/>
 
-        <rect class="fill-die" x="320" y="370" width="260" height="260"/>
-        <g class="draw-soft">
-          <line x1="385" y1="370" x2="385" y2="630"/>
-          <line x1="450" y1="370" x2="450" y2="630"/>
-          <line x1="515" y1="370" x2="515" y2="630"/>
-          <line x1="320" y1="435" x2="580" y2="435"/>
-          <line x1="320" y1="500" x2="580" y2="500"/>
-          <line x1="320" y1="565" x2="580" y2="565"/>
+        <g class="layer layer-die">
+          <rect class="fill-die" x="320" y="370" width="260" height="260"/>
+          <g class="draw-soft">
+            <line x1="385" y1="370" x2="385" y2="630"/>
+            <line x1="450" y1="370" x2="450" y2="630"/>
+            <line x1="515" y1="370" x2="515" y2="630"/>
+            <line x1="320" y1="435" x2="580" y2="435"/>
+            <line x1="320" y1="500" x2="580" y2="500"/>
+            <line x1="320" y1="565" x2="580" y2="565"/>
+          </g>
+          <rect class="draw" x="337.5" y="387.5" width="30" height="30"/>
+          <rect class="draw" x="532.5" y="387.5" width="30" height="30"/>
+          <rect class="draw" x="337.5" y="582.5" width="30" height="30"/>
+          <rect class="draw" x="532.5" y="582.5" width="30" height="30"/>
+          <rect class="draw" x="402.5" y="452.5" width="30" height="30"/>
+          <rect class="draw" x="467.5" y="517.5" width="30" height="30"/>
         </g>
-        <rect class="draw" x="337.5" y="387.5" width="30" height="30"/>
-        <rect class="draw" x="532.5" y="387.5" width="30" height="30"/>
-        <rect class="draw" x="337.5" y="582.5" width="30" height="30"/>
-        <rect class="draw" x="532.5" y="582.5" width="30" height="30"/>
-        <rect class="draw" x="402.5" y="452.5" width="30" height="30"/>
-        <rect class="draw" x="467.5" y="517.5" width="30" height="30"/>
 
-        <rect class="fill-die" x="320" y="700" width="260" height="260"/>
-        <g class="pin">
-          <circle cx="345" cy="725" r="3"/><circle cx="375" cy="725" r="3"/><circle cx="405" cy="725" r="3"/><circle cx="435" cy="725" r="3"/><circle cx="465" cy="725" r="3"/><circle cx="495" cy="725" r="3"/><circle cx="525" cy="725" r="3"/><circle cx="555" cy="725" r="3"/>
-          <circle cx="345" cy="755" r="3"/><circle cx="555" cy="755" r="3"/>
-          <circle cx="345" cy="785" r="3"/><circle cx="555" cy="785" r="3"/>
-          <circle cx="345" cy="815" r="3"/><circle cx="555" cy="815" r="3"/>
-          <circle cx="345" cy="845" r="3"/><circle cx="555" cy="845" r="3"/>
-          <circle cx="345" cy="875" r="3"/><circle cx="555" cy="875" r="3"/>
-          <circle cx="345" cy="905" r="3"/><circle cx="375" cy="905" r="3"/><circle cx="405" cy="905" r="3"/><circle cx="435" cy="905" r="3"/><circle cx="465" cy="905" r="3"/><circle cx="495" cy="905" r="3"/><circle cx="525" cy="905" r="3"/><circle cx="555" cy="905" r="3"/>
-          <circle cx="345" cy="935" r="3" class="accent-pin"/>
-        </g>
-        <g class="tick">
-          <line x1="300" y1="740" x2="320" y2="740"/>
-          <line x1="300" y1="800" x2="320" y2="800"/>
-          <line x1="300" y1="860" x2="320" y2="860"/>
-          <line x1="300" y1="920" x2="320" y2="920"/>
-          <line x1="580" y1="740" x2="600" y2="740"/>
-          <line x1="580" y1="800" x2="600" y2="800"/>
-          <line x1="580" y1="860" x2="600" y2="860"/>
-          <line x1="580" y1="920" x2="600" y2="920"/>
+        <g class="layer layer-sub">
+          <rect class="fill-die" x="320" y="700" width="260" height="260"/>
+          <g class="pin">
+            <circle cx="345" cy="725" r="3"/><circle cx="375" cy="725" r="3"/><circle cx="405" cy="725" r="3"/><circle cx="435" cy="725" r="3"/><circle cx="465" cy="725" r="3"/><circle cx="495" cy="725" r="3"/><circle cx="525" cy="725" r="3"/><circle cx="555" cy="725" r="3"/>
+            <circle cx="345" cy="755" r="3"/><circle cx="555" cy="755" r="3"/>
+            <circle cx="345" cy="785" r="3"/><circle cx="555" cy="785" r="3"/>
+            <circle cx="345" cy="815" r="3"/><circle cx="555" cy="815" r="3"/>
+            <circle cx="345" cy="845" r="3"/><circle cx="555" cy="845" r="3"/>
+            <circle cx="345" cy="875" r="3"/><circle cx="555" cy="875" r="3"/>
+            <circle cx="345" cy="905" r="3"/><circle cx="375" cy="905" r="3"/><circle cx="405" cy="905" r="3"/><circle cx="435" cy="905" r="3"/><circle cx="465" cy="905" r="3"/><circle cx="495" cy="905" r="3"/><circle cx="525" cy="905" r="3"/><circle cx="555" cy="905" r="3"/>
+            <circle cx="345" cy="935" r="3" class="accent-pin"/>
+          </g>
+          <g class="tick">
+            <line x1="300" y1="740" x2="320" y2="740"/>
+            <line x1="300" y1="800" x2="320" y2="800"/>
+            <line x1="300" y1="860" x2="320" y2="860"/>
+            <line x1="300" y1="920" x2="320" y2="920"/>
+            <line x1="580" y1="740" x2="600" y2="740"/>
+            <line x1="580" y1="800" x2="600" y2="800"/>
+            <line x1="580" y1="860" x2="600" y2="860"/>
+            <line x1="580" y1="920" x2="600" y2="920"/>
+          </g>
         </g>
       </g>
 
-      <g class="lead">
+      <g class="lead schem-lines">
         <polyline points="387.4,377.1 800,377.1 900,255"/>
         <polyline points="572.9,437.4 800,437.4 900,315"/>
         <polyline points="429.1,459.0 800,459.0 900,375"/>
@@ -555,7 +593,7 @@
         <polyline points="327.1,562.6 800,562.6 900,670"/>
         <polyline points="512.6,622.9 800,622.9 900,730"/>
       </g>
-      <g text-anchor="start">
+      <g text-anchor="start" class="schem-labels">
         <text class="label-strong" x="905" y="250">decode</text>
         <text class="label-strong" x="905" y="310">fetch</text>
         <text class="label-strong" x="905" y="370">alu</text>
@@ -564,14 +602,14 @@
         <text x="905" y="725">csr file</text>
       </g>
 
-      <g class="lead">
+      <g class="lead schem-lines">
         <polyline points="255.3,678.6 60,678.6 -60,600"/>
         <polyline points="236.7,735.6 60,735.6 -60,650"/>
         <polyline points="218.2,792.7 60,792.7 -60,700"/>
         <polyline points="205.8,830.7 60,830.7 -60,750"/>
         <polyline points="193.5,868.8 60,868.8 -60,800"/>
       </g>
-      <g text-anchor="end">
+      <g text-anchor="end" class="schem-labels">
         <text class="label-strong" x="-70" y="605">extract</text>
         <text x="-70" y="655">normalize</text>
         <text x="-70" y="705">load</text>
@@ -585,7 +623,7 @@
 <main>
 
   <section class="graph-section" id="graph-section">
-    <div class="wrap">
+    <div class="wrap reveal">
       <div class="section-head">
         <div>
           <p class="eyebrow">Extension explorer</p>
@@ -641,7 +679,7 @@
   </section>
 
   <section id="pipeline">
-    <div class="wrap">
+    <div class="wrap reveal">
       <div class="section-head">
         <div>
           <p class="eyebrow">How it's built</p>
@@ -674,7 +712,7 @@
   </section>
 
   <section id="stats">
-    <div class="wrap">
+    <div class="wrap reveal">
       <div class="stats-grid">
         <div class="stat"><span class="num">164</span><span class="lbl">Extensions</span></div>
         <div class="stat"><span class="num">1,351</span><span class="lbl">Instructions</span></div>
@@ -687,7 +725,7 @@
   </section>
 
   <section id="answers">
-    <div class="wrap split">
+    <div class="wrap split reveal">
       <div>
         <p class="eyebrow">What it's for</p>
         <h2 style="margin-bottom:1.5rem;">Questions that used to mean opening ten YAML files</h2>
@@ -717,7 +755,7 @@
   </section>
 
   <section id="stack">
-    <div class="wrap">
+    <div class="wrap reveal">
       <p class="eyebrow">Built with</p>
       <div class="stack-row">
         <span class="chip">Python</span>
@@ -1067,6 +1105,25 @@ var EXT_DATA = [{"name": "A", "long_name": "Atomic instructions", "kind": "exten
 
   loadExtension('F');
   setActiveQuick('F');
+})();
+</script>
+<script>
+(function(){
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var targets = document.querySelectorAll('.reveal');
+  if (reduceMotion || !('IntersectionObserver' in window)){
+    targets.forEach(function(el){ el.classList.add('is-visible'); });
+    return;
+  }
+  var io = new IntersectionObserver(function(entries){
+    entries.forEach(function(entry){
+      if (entry.isIntersecting){
+        entry.target.classList.add('is-visible');
+        io.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.15, rootMargin: '0px 0px -60px 0px' });
+  targets.forEach(function(el){ io.observe(el); });
 })();
 </script>
 </body>
