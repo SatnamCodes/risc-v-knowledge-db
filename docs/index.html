@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RISC-V Knowledge DB</title>
+<meta name="description" content="A cinematic, blueprint-styled tour of the RISC-V knowledge database — an exploded processor schematic and a zoomable, physics-driven per-extension graph with draggable nodes and click-to-inspect details and SQL.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#141412;
+    --bg2:#1b1b18;
+    --panel:#1f1f1c;
+    --line:#3c3b36;
+    --line-soft:#2a2a26;
+    --fg:#f2efe6;
+    --muted:#93908a;
+    --accent:#d97b3f;
+    --mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+    --sans:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  }
+
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--fg);
+    font-family:var(--sans);
+    line-height:1.55;
+  }
+
+  ::selection{ background:var(--accent); color:#181712; }
+
+  a{ color:inherit; }
+
+  .wrap{ max-width:1180px; margin:0 auto; padding:0 1.75rem; }
+
+  /* ---------- shared type ---------- */
+  .eyebrow{
+    font-family:var(--mono);
+    font-size:0.72rem;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--accent);
+    margin:0 0 0.9rem;
+  }
+
+  h1,h2,h3{ font-family:var(--sans); font-weight:700; text-wrap:balance; margin:0; }
+
+  .num{ font-family:var(--mono); font-variant-numeric:tabular-nums; }
+
+  /* ---------- hero ---------- */
+  .hero{
+    position:relative;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    overflow:hidden;
+    border-bottom:1px solid var(--line);
+    background:
+      linear-gradient(var(--line-soft) 1px, transparent 1px) 0 0/48px 48px,
+      linear-gradient(90deg, var(--line-soft) 1px, transparent 1px) 0 0/48px 48px,
+      var(--bg);
+    background-blend-mode:normal;
+  }
+
+  .hero::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:radial-gradient(ellipse 70% 55% at 68% 45%, rgba(217,123,63,0.07), transparent 70%);
+    pointer-events:none;
+  }
+
+  .hero-inner{
+    position:relative;
+    width:100%;
+    max-width:1280px;
+    margin:0 auto;
+    padding:6rem 1.75rem 4rem;
+    display:grid;
+    gap:2rem;
+  }
+
+  .hero-copy{ max-width:34ch; }
+
+  .wordmark{
+    display:flex;
+    align-items:center;
+    gap:0.5rem;
+    font-family:var(--mono);
+    font-size:0.85rem;
+    letter-spacing:0.02em;
+    margin-bottom:2.75rem;
+  }
+  .wordmark .dot{ width:6px; height:6px; background:var(--accent); border-radius:50%; }
+
+  .hero h1{
+    font-size:clamp(2.4rem, 5.4vw, 4.1rem);
+    line-height:0.98;
+    letter-spacing:-0.02em;
+  }
+
+  .hero p.dek{
+    margin-top:1.1rem;
+    color:var(--muted);
+    font-size:1.05rem;
+    max-width:36ch;
+  }
+
+  .hero .cta{
+    margin-top:2.25rem;
+    display:inline-flex;
+    align-items:center;
+    gap:0.6rem;
+    font-family:var(--mono);
+    font-size:0.82rem;
+    letter-spacing:0.04em;
+    text-transform:uppercase;
+    text-decoration:none;
+    color:var(--fg);
+    border:1px solid var(--line);
+    padding:0.75rem 1.15rem;
+    background:transparent;
+    cursor:pointer;
+    transition:border-color .2s ease, color .2s ease;
+  }
+  .hero .cta:hover{ border-color:var(--accent); color:var(--accent); }
+  .hero .cta svg{ width:12px; height:12px; }
+
+  .schematic-svg{ width:100%; height:auto; display:block; overflow:visible; }
+  .schematic-svg .draw{ fill:none; stroke:var(--fg); stroke-width:1.1; }
+  .schematic-svg .draw-soft{ fill:none; stroke:var(--line); stroke-width:1; }
+  .schematic-svg .fill-die{ fill:var(--bg2); stroke:var(--fg); stroke-width:1.1; }
+  .schematic-svg .lead{ fill:none; stroke:var(--muted); stroke-width:1; }
+  .schematic-svg .pin{ fill:var(--muted); }
+  .schematic-svg .accent-pin{ fill:var(--accent); }
+  .schematic-svg text{ font-family:var(--mono); fill:var(--muted); }
+  .schematic-svg text.label-strong{ fill:var(--fg); }
+  .schematic-svg .tick{ stroke:var(--fg); stroke-width:1; }
+
+  /* ---------- section scaffolding ---------- */
+  section{ padding:5.5rem 0; border-bottom:1px solid var(--line); }
+  section:last-of-type{ border-bottom:none; }
+
+  .section-head{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:baseline;
+    justify-content:space-between;
+    gap:1rem;
+    margin-bottom:2rem;
+  }
+  .section-head h2{ font-size:clamp(1.4rem, 2.6vw, 1.9rem); }
+  .section-head .count{ font-family:var(--mono); font-size:0.85rem; color:var(--muted); }
+
+  /* ---------- explorer (graph) section ---------- */
+  .graph-section{ background:var(--bg2); }
+
+  .explorer-controls{
+    display:flex;
+    flex-wrap:wrap;
+    gap:1rem;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:1.5rem;
+  }
+
+  .search-box{
+    display:flex;
+    border:1px solid var(--line);
+    background:var(--bg);
+  }
+  .search-box:focus-within{ border-color:var(--accent); }
+  .search-box input{
+    flex:1;
+    min-width:220px;
+    background:transparent;
+    border:none;
+    outline:none;
+    color:var(--fg);
+    font-family:var(--mono);
+    font-size:0.88rem;
+    padding:0.7rem 0.9rem;
+  }
+  .search-box input::placeholder{ color:var(--muted); }
+  .search-box button{
+    border:none;
+    border-left:1px solid var(--line);
+    background:transparent;
+    color:var(--muted);
+    font-family:var(--mono);
+    font-size:0.76rem;
+    text-transform:uppercase;
+    letter-spacing:0.05em;
+    padding:0 1.1rem;
+    cursor:pointer;
+    transition:color .2s ease, background .2s ease;
+  }
+  .search-box button:hover{ color:var(--accent); background:var(--panel); }
+
+  .quicklinks{ display:flex; flex-wrap:wrap; gap:0.5rem; }
+  .quicklinks button{
+    font-family:var(--mono);
+    font-size:0.76rem;
+    border:1px solid var(--line);
+    background:transparent;
+    color:var(--muted);
+    padding:0.4rem 0.7rem;
+    cursor:pointer;
+    transition:border-color .2s ease, color .2s ease;
+  }
+  .quicklinks button:hover, .quicklinks button.active{ border-color:var(--accent); color:var(--accent); }
+
+  .search-status{
+    font-family:var(--mono);
+    font-size:0.78rem;
+    color:var(--accent);
+    min-height:1.2em;
+    margin-bottom:0.75rem;
+  }
+
+  .graph-frame{
+    position:relative;
+    border:1px solid var(--line);
+    background:var(--bg);
+    background-image:
+      linear-gradient(var(--line-soft) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line-soft) 1px, transparent 1px);
+    background-size:32px 32px;
+  }
+
+  .zoom-controls{
+    position:absolute;
+    top:0.85rem;
+    right:0.85rem;
+    z-index:2;
+    display:flex;
+    border:1px solid var(--line);
+    background:var(--bg);
+  }
+  .zoom-controls button{
+    border:none;
+    border-right:1px solid var(--line);
+    background:transparent;
+    color:var(--muted);
+    font-family:var(--mono);
+    font-size:0.85rem;
+    width:2.2rem;
+    height:2.2rem;
+    cursor:pointer;
+    transition:color .2s ease, background .2s ease;
+  }
+  .zoom-controls button:last-child{ border-right:none; width:auto; padding:0 0.9rem; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.04em; }
+  .zoom-controls button:hover{ color:var(--accent); background:var(--panel); }
+
+  #graph{ width:100%; display:block; cursor:grab; }
+  #graph:active{ cursor:grabbing; }
+  #graph .node-shape{ cursor:grab; }
+  #graph .node-shape:active{ cursor:grabbing; }
+  #graph .node-shape{ transform-box:fill-box; transform-origin:50% 50%; cursor:pointer; }
+  #graph .node-shape circle{ transition:stroke-width .15s ease; }
+  #graph .node-shape:hover circle{ stroke-width:2.2; }
+  #graph .node-shape.selected circle{ stroke:var(--accent); stroke-width:2.4; }
+
+  #graph .node-root circle{ fill:var(--fg); }
+  #graph .node-extension circle{ fill:var(--bg2); stroke:var(--fg); stroke-width:1.3; }
+  #graph .node-extension.related circle{ fill:var(--bg2); stroke:var(--muted); stroke-dasharray:2 2; }
+  #graph .node-instruction circle{ fill:var(--muted); }
+  #graph .node-pseudo circle{ fill:var(--accent); }
+
+  #graph .link-defines{ stroke:var(--line); stroke-width:1.1; fill:none; }
+  #graph .link-expands{ stroke:var(--accent); stroke-width:1; fill:none; opacity:0.7; }
+  #graph .link-requires{ stroke:var(--muted); stroke-width:1; stroke-dasharray:3 3; fill:none; opacity:0.7; }
+
+  #graph text.node-label{
+    font-family:var(--mono);
+    fill:var(--muted);
+    pointer-events:none;
+  }
+  #graph .node-root text.node-label{ fill:var(--fg); font-size:13px; font-weight:600; }
+  #graph .node-extension text.node-label{ fill:var(--fg); font-size:11px; }
+  #graph .node-pseudo text.node-label{ fill:var(--accent); }
+
+  #graph .edge-label{
+    font-family:var(--mono);
+    font-size:9px;
+    fill:var(--muted);
+    pointer-events:none;
+  }
+
+  #graph .empty-note{
+    font-family:var(--mono);
+    font-size:0.85rem;
+    fill:var(--muted);
+  }
+
+  .graph-hint{
+    display:flex;
+    flex-wrap:wrap;
+    gap:1.75rem;
+    margin-top:1.25rem;
+    font-family:var(--mono);
+    font-size:0.78rem;
+    color:var(--muted);
+  }
+  .graph-hint span.sw{
+    display:inline-block;
+    width:8px; height:8px;
+    border-radius:50%;
+    margin-right:0.45rem;
+    vertical-align:middle;
+  }
+  .sw.root{ background:var(--fg); }
+  .sw.ext{ background:transparent; border:1.2px solid var(--fg); }
+  .sw.rel{ background:transparent; border:1.2px dashed var(--muted); }
+  .sw.inst{ background:var(--muted); }
+  .sw.pseudo{ background:var(--accent); }
+
+  /* ---------- details + query panels ---------- */
+  .panel-row{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:1px;
+    background:var(--line);
+    border:1px solid var(--line);
+    margin-top:1.25rem;
+  }
+  @media (min-width:800px){
+    .panel-row{ grid-template-columns:0.85fr 1.15fr; }
+  }
+  .panel-row .details-panel, .panel-row .query-panel{
+    margin-top:0;
+    border:none;
+    background:var(--panel);
+  }
+
+  .details-panel .code-head{
+    display:flex; justify-content:space-between; gap:0.75rem;
+    padding:0.7rem 0.9rem; border-bottom:1px solid var(--line);
+    font-family:var(--mono); font-size:0.74rem; color:var(--muted);
+  }
+  .details-panel .code-head .tag{ color:var(--accent); }
+  #details-body{ padding:1.1rem 1.25rem; min-height:3.4em; }
+  #details-body .row{
+    display:flex; gap:1rem; justify-content:space-between;
+    padding:0.4rem 0;
+    border-bottom:1px solid var(--line-soft);
+    font-size:0.85rem;
+  }
+  #details-body .row:last-child{ border-bottom:none; }
+  #details-body .row .k{ font-family:var(--mono); color:var(--muted); flex:none; }
+  #details-body .row .v{ font-family:var(--mono); color:var(--fg); text-align:right; word-break:break-word; }
+  #details-body .desc{ margin:0 0 0.9rem; font-size:0.88rem; color:var(--muted); }
+  #details-body .placeholder{ font-family:var(--mono); color:var(--muted); font-size:0.85rem; }
+
+  /* ---------- query panel ---------- */
+  .query-panel{
+    margin-top:1.25rem;
+    border:1px solid var(--line);
+    background:var(--panel);
+  }
+  .query-panel .code-head{
+    display:flex;
+    justify-content:space-between;
+    gap:0.75rem;
+    padding:0.7rem 0.9rem;
+    border-bottom:1px solid var(--line);
+    font-family:var(--mono);
+    font-size:0.74rem;
+    color:var(--muted);
+  }
+  .query-panel .code-head .tag{ color:var(--accent); }
+  .query-panel pre{
+    margin:0;
+    padding:1.1rem 1.25rem;
+    font-family:var(--mono);
+    font-size:0.82rem;
+    line-height:1.7;
+    color:var(--fg);
+    overflow-x:auto;
+    min-height:3.4em;
+  }
+  .query-panel .k{ color:var(--accent); }
+  .query-panel .c{ color:var(--muted); }
+  .query-panel .placeholder{ color:var(--muted); font-style:normal; }
+
+  /* ---------- pipeline ---------- */
+  .pipeline-steps{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(220px,1fr));
+    gap:0;
+    border:1px solid var(--line);
+  }
+  .pstep{
+    padding:1.75rem 1.5rem;
+    border-right:1px solid var(--line);
+    position:relative;
+  }
+  .pstep:last-child{ border-right:none; }
+  .pstep .pnum{ font-family:var(--mono); color:var(--accent); font-size:0.78rem; }
+  .pstep h3{ font-size:1.05rem; margin:0.6rem 0 0.5rem; font-family:var(--mono); font-weight:600; }
+  .pstep p{ color:var(--muted); font-size:0.88rem; margin:0; }
+  .pstep code{ font-family:var(--mono); font-size:0.82em; color:var(--fg); background:var(--panel); padding:0.1em 0.35em; }
+
+  /* ---------- stats ---------- */
+  .stats-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(150px,1fr));
+    gap:1px;
+    background:var(--line);
+    border:1px solid var(--line);
+  }
+  .stat{ background:var(--bg); padding:2rem 1.5rem; }
+  .stat .num{ display:block; font-size:2.4rem; font-weight:600; color:var(--fg); }
+  .stat .lbl{ font-family:var(--mono); font-size:0.78rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; margin-top:0.4rem; display:block; }
+
+  /* ---------- answers / schema ---------- */
+  .split{ display:grid; grid-template-columns:1fr; gap:3rem; }
+  @media (min-width:860px){ .split{ grid-template-columns:1.1fr 0.9fr; } }
+
+  .qlist{ list-style:none; margin:0; padding:0; display:grid; gap:0; border-top:1px solid var(--line); counter-reset:q; }
+  .qlist li{
+    padding:1.1rem 0;
+    border-bottom:1px solid var(--line);
+    display:flex;
+    gap:1rem;
+    align-items:baseline;
+    font-size:0.98rem;
+  }
+  .qlist li::before{
+    content:"Q" counter(q);
+    counter-increment:q;
+    font-family:var(--mono);
+    font-size:0.72rem;
+    color:var(--accent);
+    flex:none;
+    padding-top:0.15rem;
+  }
+
+  .code-panel{ border:1px solid var(--line); background:var(--panel); }
+  .code-panel .code-head{
+    display:flex; gap:0.4rem; padding:0.7rem 0.9rem;
+    border-bottom:1px solid var(--line);
+    font-family:var(--mono); font-size:0.72rem; color:var(--muted);
+  }
+  .code-panel pre{
+    margin:0; padding:1.25rem;
+    font-family:var(--mono); font-size:0.82rem; line-height:1.7;
+    color:var(--fg); overflow-x:auto;
+  }
+  .code-panel .k{ color:var(--accent); }
+  .code-panel .c{ color:var(--muted); }
+
+  /* ---------- stack ---------- */
+  .stack-row{ display:flex; flex-wrap:wrap; gap:0.6rem; }
+  .chip{
+    font-family:var(--mono); font-size:0.8rem;
+    border:1px solid var(--line); padding:0.45rem 0.85rem; color:var(--muted);
+  }
+
+  /* ---------- footer ---------- */
+  footer{
+    padding:2.5rem 0 3.5rem;
+    font-family:var(--mono);
+    font-size:0.78rem;
+    color:var(--muted);
+  }
+  footer .wrap{ display:flex; justify-content:space-between; flex-wrap:wrap; gap:0.75rem; }
+
+  @media (prefers-reduced-motion: reduce){
+    html{ scroll-behavior:auto; }
+  }
+</style>
+</head>
+<body>
+
+<div class="hero" id="top">
+  <div class="hero-inner">
+    <div class="hero-copy">
+      <div class="wordmark"><span class="dot"></span>risc&#8209;v&#8209;db</div>
+      <h1>The RISC&#8209;V ISA,<br>modeled as data.</h1>
+      <p class="dek">A pipeline that turns 1,700+ specification files &mdash; every instruction, extension, and register &mdash; into a normalized, queryable PostgreSQL database.</p>
+      <a class="cta" href="#graph"><svg viewBox="0 0 12 12"><path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.4"/></svg> explore an extension</a>
+    </div>
+  </div>
+
+  <svg class="schematic-svg" viewBox="0 0 1500 1000" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Exploded schematic of a RISC-V processor package, its die annotated with decode, fetch, ALU, vector, load/store, and CSR file blocks, connecting to the project pipeline stages extract, normalize, load, query, and verify.">
+    <g transform="translate(560,10)">
+
+      <g transform="rotate(18 450 500)">
+        <line class="draw-soft" x1="320" y1="40" x2="320" y2="960"/>
+        <line class="draw-soft" x1="580" y1="40" x2="580" y2="960"/>
+        <line class="draw-soft" x1="450" y1="10" x2="450" y2="960"/>
+
+        <rect class="fill-die" x="320" y="40" width="260" height="260"/>
+        <rect class="draw-soft" x="345" y="65" width="210" height="210"/>
+        <line class="draw" x1="320" y1="40" x2="300" y2="20"/>
+        <g class="draw-soft">
+          <line x1="500" y1="60" x2="560" y2="60"/>
+          <line x1="500" y1="72" x2="560" y2="72"/>
+          <line x1="500" y1="84" x2="560" y2="84"/>
+          <line x1="500" y1="96" x2="560" y2="96"/>
+          <line x1="500" y1="108" x2="560" y2="108"/>
+        </g>
+        <circle class="draw" cx="450" cy="170" r="3"/>
+
+        <rect class="fill-die" x="320" y="370" width="260" height="260"/>
+        <g class="draw-soft">
+          <line x1="385" y1="370" x2="385" y2="630"/>
+          <line x1="450" y1="370" x2="450" y2="630"/>
+          <line x1="515" y1="370" x2="515" y2="630"/>
+          <line x1="320" y1="435" x2="580" y2="435"/>
+          <line x1="320" y1="500" x2="580" y2="500"/>
+          <line x1="320" y1="565" x2="580" y2="565"/>
+        </g>
+        <rect class="draw" x="337.5" y="387.5" width="30" height="30"/>
+        <rect class="draw" x="532.5" y="387.5" width="30" height="30"/>
+        <rect class="draw" x="337.5" y="582.5" width="30" height="30"/>
+        <rect class="draw" x="532.5" y="582.5" width="30" height="30"/>
+        <rect class="draw" x="402.5" y="452.5" width="30" height="30"/>
+        <rect class="draw" x="467.5" y="517.5" width="30" height="30"/>
+
+        <rect class="fill-die" x="320" y="700" width="260" height="260"/>
+        <g class="pin">
+          <circle cx="345" cy="725" r="3"/><circle cx="375" cy="725" r="3"/><circle cx="405" cy="725" r="3"/><circle cx="435" cy="725" r="3"/><circle cx="465" cy="725" r="3"/><circle cx="495" cy="725" r="3"/><circle cx="525" cy="725" r="3"/><circle cx="555" cy="725" r="3"/>
+          <circle cx="345" cy="755" r="3"/><circle cx="555" cy="755" r="3"/>
+          <circle cx="345" cy="785" r="3"/><circle cx="555" cy="785" r="3"/>
+          <circle cx="345" cy="815" r="3"/><circle cx="555" cy="815" r="3"/>
+          <circle cx="345" cy="845" r="3"/><circle cx="555" cy="845" r="3"/>
+          <circle cx="345" cy="875" r="3"/><circle cx="555" cy="875" r="3"/>
+          <circle cx="345" cy="905" r="3"/><circle cx="375" cy="905" r="3"/><circle cx="405" cy="905" r="3"/><circle cx="435" cy="905" r="3"/><circle cx="465" cy="905" r="3"/><circle cx="495" cy="905" r="3"/><circle cx="525" cy="905" r="3"/><circle cx="555" cy="905" r="3"/>
+          <circle cx="345" cy="935" r="3" class="accent-pin"/>
+        </g>
+        <g class="tick">
+          <line x1="300" y1="740" x2="320" y2="740"/>
+          <line x1="300" y1="800" x2="320" y2="800"/>
+          <line x1="300" y1="860" x2="320" y2="860"/>
+          <line x1="300" y1="920" x2="320" y2="920"/>
+          <line x1="580" y1="740" x2="600" y2="740"/>
+          <line x1="580" y1="800" x2="600" y2="800"/>
+          <line x1="580" y1="860" x2="600" y2="860"/>
+          <line x1="580" y1="920" x2="600" y2="920"/>
+        </g>
+      </g>
+
+      <g class="lead">
+        <polyline points="387.4,377.1 800,377.1 900,255"/>
+        <polyline points="572.9,437.4 800,437.4 900,315"/>
+        <polyline points="429.1,459.0 800,459.0 900,375"/>
+        <polyline points="470.9,541.0 800,541.0 900,610"/>
+        <polyline points="327.1,562.6 800,562.6 900,670"/>
+        <polyline points="512.6,622.9 800,622.9 900,730"/>
+      </g>
+      <g text-anchor="start">
+        <text class="label-strong" x="905" y="250">decode</text>
+        <text class="label-strong" x="905" y="310">fetch</text>
+        <text class="label-strong" x="905" y="370">alu</text>
+        <text x="905" y="605">vector unit</text>
+        <text x="905" y="665">load / store</text>
+        <text x="905" y="725">csr file</text>
+      </g>
+
+      <g class="lead">
+        <polyline points="255.3,678.6 60,678.6 -60,600"/>
+        <polyline points="236.7,735.6 60,735.6 -60,650"/>
+        <polyline points="218.2,792.7 60,792.7 -60,700"/>
+        <polyline points="205.8,830.7 60,830.7 -60,750"/>
+        <polyline points="193.5,868.8 60,868.8 -60,800"/>
+      </g>
+      <g text-anchor="end">
+        <text class="label-strong" x="-70" y="605">extract</text>
+        <text x="-70" y="655">normalize</text>
+        <text x="-70" y="705">load</text>
+        <text x="-70" y="755">query</text>
+        <text x="-70" y="805">verify</text>
+      </g>
+    </g>
+  </svg>
+</div>
+
+<main>
+
+  <section class="graph-section" id="graph-section">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Extension explorer</p>
+          <h2>Search an extension, watch it grow</h2>
+        </div>
+        <span class="count" id="ext-count">164 extensions indexed</span>
+      </div>
+
+      <div class="explorer-controls">
+        <div class="search-box">
+          <input id="ext-search" list="ext-options" placeholder="search an extension &mdash; e.g. Zfa, V, Zvfbfwma&hellip;" autocomplete="off" spellcheck="false">
+          <datalist id="ext-options"></datalist>
+          <button id="ext-go" type="button">graph it</button>
+        </div>
+        <div class="quicklinks" id="ext-quicklinks"></div>
+      </div>
+      <div class="search-status" id="search-status">&nbsp;</div>
+
+      <div class="graph-frame">
+        <div class="zoom-controls">
+          <button type="button" id="zoom-in" title="zoom in">+</button>
+          <button type="button" id="zoom-out" title="zoom out">&minus;</button>
+          <button type="button" id="zoom-reset" title="reset view">reset</button>
+        </div>
+        <svg id="graph" viewBox="0 0 1180 620" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Force-directed, zoomable graph centered on the selected RISC-V extension, showing the instructions it defines, its pseudoinstruction expansions, and extension dependency edges. Nodes are draggable and the layout is physics-driven."></svg>
+      </div>
+
+      <div class="graph-hint">
+        <span><span class="sw root"></span>selected extension</span>
+        <span><span class="sw rel"></span>requires / required&#8209;by</span>
+        <span><span class="sw inst"></span>instruction it defines</span>
+        <span><span class="sw pseudo"></span>pseudoinstruction</span>
+        <span>scroll to zoom &middot; drag empty space to pan &middot; drag a node to move it</span>
+      </div>
+
+      <div class="panel-row">
+        <div class="details-panel">
+          <div class="code-head">
+            <span class="tag">details</span>
+            <span id="details-caption">click a node</span>
+          </div>
+          <div id="details-body"><span class="placeholder">Select any node in the graph to see its real column values here.</span></div>
+        </div>
+        <div class="query-panel">
+          <div class="code-head">
+            <span id="query-tag" class="tag">sql/queries.sql</span>
+            <span id="query-caption">click a node to see its query</span>
+          </div>
+          <pre id="query-text"><span class="placeholder">-- nothing selected yet --</span></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="pipeline">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">How it's built</p>
+          <h2>Three stages, one direction</h2>
+        </div>
+      </div>
+      <div class="pipeline-steps">
+        <div class="pstep">
+          <span class="pnum">01</span>
+          <h3>extract_*.py</h3>
+          <p>Walks <code>riscv-unified-db/spec/std/isa</code>, parses every extension, instruction, and CSR YAML file with <code>pyyaml</code>, tags each record with its source path.</p>
+        </div>
+        <div class="pstep">
+          <span class="pnum">02</span>
+          <h3>data/*.json</h3>
+          <p>Normalized JSON snapshots &mdash; stable, diffable, and disconnected from the upstream repo so loading doesn't require re-parsing YAML.</p>
+        </div>
+        <div class="pstep">
+          <span class="pnum">03</span>
+          <h3>load_*.py</h3>
+          <p>Inserts into 8 PostgreSQL tables via <code>psycopg2</code>, resolving extension references and flattening nested requirement logic into foreign-keyed rows.</p>
+        </div>
+        <div class="pstep">
+          <span class="pnum">04</span>
+          <h3>query.py / .sql</h3>
+          <p>What it was all for &mdash; "which extension defines this instruction" answered in one indexed join, not a grep.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="stats">
+    <div class="wrap">
+      <div class="stats-grid">
+        <div class="stat"><span class="num">164</span><span class="lbl">Extensions</span></div>
+        <div class="stat"><span class="num">1,351</span><span class="lbl">Instructions</span></div>
+        <div class="stat"><span class="num">396</span><span class="lbl">CSRs</span></div>
+        <div class="stat"><span class="num">1,304</span><span class="lbl">CSR fields</span></div>
+        <div class="stat"><span class="num">8</span><span class="lbl">Relational tables</span></div>
+        <div class="stat"><span class="num">3NF</span><span class="lbl">Normal form</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="answers">
+    <div class="wrap split">
+      <div>
+        <p class="eyebrow">What it's for</p>
+        <h2 style="margin-bottom:1.5rem;">Questions that used to mean opening ten YAML files</h2>
+        <ul class="qlist">
+          <li>Which extension defines a given instruction, and what's its assembly form?</li>
+          <li>What CSRs exist at a given privilege mode, and at what address?</li>
+          <li>Which instructions expand into pseudoinstructions, and under what condition?</li>
+          <li>What does an extension require to be implemented &mdash; and what requires it?</li>
+          <li>Which instructions have no cleanly resolvable defining extension?</li>
+        </ul>
+      </div>
+      <div class="code-panel">
+        <div class="code-head">sql/queries.sql</div>
+        <pre><span class="c">-- which extension defines an instruction</span>
+<span class="k">SELECT</span> i.name, i.assembly, e.name <span class="k">AS</span> extension
+<span class="k">FROM</span> instructions i
+<span class="k">LEFT JOIN</span> extensions e <span class="k">ON</span> e.extension_id = i.extension_id
+<span class="k">WHERE</span> i.name = <span class="c">'addi'</span>;
+
+<span class="c">-- csrs at machine privilege, by address</span>
+<span class="k">SELECT</span> name, address, length
+<span class="k">FROM</span> csrs
+<span class="k">WHERE</span> priv_mode = <span class="c">'M'</span>
+<span class="k">ORDER BY</span> address;</pre>
+      </div>
+    </div>
+  </section>
+
+  <section id="stack">
+    <div class="wrap">
+      <p class="eyebrow">Built with</p>
+      <div class="stack-row">
+        <span class="chip">Python</span>
+        <span class="chip">PostgreSQL</span>
+        <span class="chip">psycopg2</span>
+        <span class="chip">PyYAML</span>
+        <span class="chip">python-dotenv</span>
+        <span class="chip">riscv-unified-db</span>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>risc&#8209;v&#8209;db &mdash; source: riscv-unified-db / spec / std / isa</span>
+    <span><a href="#top" style="text-decoration:none; color:var(--fg);">&uarr; back to top</a></span>
+  </div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script>
+var EXT_DATA = [{"name": "A", "long_name": "Atomic instructions", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "B", "long_name": "Bit Manipulation", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "C", "long_name": "Compressed instructions", "kind": "extension", "type": "unprivileged", "requires": ["D", "F", "Zca", "Zcd", "Zcf"], "instruction_count": 0, "instructions": []}, {"name": "D", "long_name": "Double-precision floating-point", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 2, "instructions": [{"name": "fsd", "assembly": "fs2, imm(xs1)", "pseudo": []}, {"name": "fld", "assembly": "fd, imm(xs1)", "pseudo": []}]}, {"name": "F", "long_name": "Single-precision floating-point", "kind": "extension", "type": "unprivileged", "requires": ["Zicsr"], "instruction_count": 26, "instructions": [{"name": "fcvt.s.wu", "assembly": "fd, xs1, rm", "pseudo": []}, {"name": "fmax.s", "assembly": "fd, fs1, fs2", "pseudo": []}, {"name": "fsgnj.s", "assembly": "fd, fs1, fs2", "pseudo": [{"to": "fmv.s fd, fs1", "when": "(fs2 == fs1)"}]}, {"name": "flt.s", "assembly": "xd, fs1, fs2", "pseudo": []}, {"name": "fsub.s", "assembly": "fd, fs1, fs2, rm", "pseudo": []}, {"name": "fnmadd.s", "assembly": "fd, fs1, fs2, fs3, rm", "pseudo": []}, {"name": "fmadd.s", "assembly": "fd, fs1, fs2, fs3, rm", "pseudo": []}, {"name": "fsgnjx.s", "assembly": "fd, fs1, fs2", "pseudo": [{"to": "fabs.s fd, fs1", "when": "(fs2 == fs1)"}]}, {"name": "fmv.x.w", "assembly": "xd, fs1", "pseudo": []}, {"name": "fadd.s", "assembly": "fd, fs1, fs2, rm", "pseudo": []}, {"name": "feq.s", "assembly": "xd, fs1, fs2", "pseudo": []}, {"name": "fnmsub.s", "assembly": "fd, fs1, fs2, fs3, rm", "pseudo": []}, {"name": "fmul.s", "assembly": "fd, fs1, fs2, rm", "pseudo": []}, {"name": "fcvt.wu.s", "assembly": "xd, fs1, rm", "pseudo": []}, {"name": "flw", "assembly": "fd, imm(xs1)", "pseudo": []}, {"name": "fsgnjn.s", "assembly": "fd, fs1, fs2", "pseudo": [{"to": "fneg.s fd, fs1", "when": "(fs2 == fs1)"}]}, {"name": "fsqrt.s", "assembly": "fd, fs1, rm", "pseudo": []}, {"name": "fmsub.s", "assembly": "fd, fs1, fs2, fs3, rm", "pseudo": []}, {"name": "fle.s", "assembly": "xd, fs1, fs2", "pseudo": []}, {"name": "fclass.s", "assembly": "xd, fs1", "pseudo": []}, {"name": "fsw", "assembly": "fs2, imm(xs1)", "pseudo": []}, {"name": "fmv.w.x", "assembly": "fd, xs1", "pseudo": []}, {"name": "fmin.s", "assembly": "fd, fs1, fs2", "pseudo": []}, {"name": "fcvt.s.w", "assembly": "fd, xs1, rm", "pseudo": []}]}, {"name": "H", "long_name": "Hypervisor", "kind": "extension", "type": "privileged", "requires": ["S"], "instruction_count": 12, "instructions": [{"name": "hsv.b", "assembly": "xs1, xs2", "pseudo": []}, {"name": "hlv.bu", "assembly": "xd, xs1", "pseudo": []}, {"name": "hlvx.wu", "assembly": "xd, xs1", "pseudo": []}, {"name": "hlv.w", "assembly": "xd, xs1", "pseudo": []}, {"name": "hsv.h", "assembly": "xs1, xs2", "pseudo": []}, {"name": "hlv.h", "assembly": "xd, xs1", "pseudo": []}, {"name": "hfence.gvma", "assembly": "xs1, xs2", "pseudo": []}, {"name": "hfence.vvma", "assembly": "xs1, xs2", "pseudo": []}, {"name": "hlv.b", "assembly": "xd, xs1", "pseudo": []}, {"name": "hlv.hu", "assembly": "xd, xs1", "pseudo": []}, {"name": "hlvx.hu", "assembly": "xd, xs1", "pseudo": []}, {"name": "hsv.w", "assembly": "xs1, xs2", "pseudo": []}]}, {"name": "I", "long_name": "Base integer ISA (RV32I or RV64I)", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 41, "instructions": [{"name": "lb", "assembly": "xd, imm(xs1)", "pseudo": []}, {"name": "auipc", "assembly": "xd, imm", "pseudo": []}, {"name": "xori", "assembly": "xd, xs1, imm", "pseudo": [{"to": "not xd, xs1", "when": "$signed(imm) == -1"}]}, {"name": "lui", "assembly": "xd, imm", "pseudo": []}, {"name": "jal", "assembly": "xd, imm", "pseudo": [{"to": "j xd", "when": "imm == 0"}, {"to": "jal imm", "when": "xd == x1"}]}, {"name": "jalr", "assembly": "xd, imm(xs1)", "pseudo": [{"to": "jr imm(xs1)", "when": "xd == 0"}, {"to": "ret", "when": "(xd == 0 && xs1 == x1 && imm == 0)"}]}, {"name": "lw", "assembly": "xd, imm(xs1)", "pseudo": []}, {"name": "bne", "assembly": "xs1, xs2, imm", "pseudo": [{"to": "bnez xs1, imm", "when": "xs2 == 0"}]}, {"name": "add", "assembly": "xd, xs1, xs2", "pseudo": []}, {"name": "sub", "assembly": "xd, xs1, xs2", "pseudo": [{"to": "neg xd, xs2", "when": "xs1 == 0"}]}, {"name": "sll", "assembly": "xd, xs1, xs2", "pseudo": []}, {"name": "sra", "assembly": "xd, xs1, xs2", "pseudo": []}, {"name": "srli", "assembly": "xd, xs1, shamt", "pseudo": []}, {"name": "sh", "assembly": "xs2, imm(xs1)", "pseudo": []}, {"name": "beq", "assembly": "xs1, xs2, imm", "pseudo": [{"to": "beqz xs1, imm", "when": "xs2 == 0"}]}, {"name": "bltu", "assembly": "xs1, xs2, imm", "pseudo": [{"to": "bgtu xs2, xs1, imm", "when": "true"}]}, {"name": "lbu", "assembly": "xd, imm(xs1)", "pseudo": []}, {"name": "or", "assembly": "xd, xs1, xs2", "pseudo": []}, {"name": "andi", "assembly": "xd, xs1, imm", "pseudo": [{"to": "zext.b xd, xs1", "when": "imm == 255"}]}, {"name": "xor", "assembly": "xd, xs1, xs2", "pseudo": []}, {"name": "srl", "assembly": "xd, xs1, xs2", "pseudo": []}, {"name": "bge", "assembly": "xs1, xs2, imm", "pseudo": [{"to": "blez xs2, imm", "when": "xs1 == 0"}, {"to": "bgez xs1, imm", "when": "xs2 == 0"}]}, {"name": "ebreak", "assembly": "", "pseudo": []}, {"name": "and", "assembly": "xd, xs1, xs2", "pseudo": []}]}, {"name": "M", "long_name": "Integer multiply and divide", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 4, "instructions": [{"name": "remu", "assembly": "xd, xs1, xs2", "pseudo": []}, {"name": "divu", "assembly": "xd, xs1, xs2", "pseudo": []}, {"name": "div", "assembly": "xd, xs1, xs2", "pseudo": []}, {"name": "rem", "assembly": "xd, xs1, xs2", "pseudo": []}]}, {"name": "Q", "long_name": "Quad-Precision Floating-Point", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 28, "instructions": [{"name": "fmax.q", "assembly": "fd, fs1, fs2", "pseudo": []}, {"name": "fnmadd.q", "assembly": "fd, fs1, fs2, fs3, rm", "pseudo": []}, {"name": "fcvt.s.q", "assembly": "fd, fs1, rm", "pseudo": []}, {"name": "feq.q", "assembly": "xd, fs1, fs2", "pseudo": []}, {"name": "fsgnj.q", "assembly": "fd, fs1, fs2", "pseudo": [{"to": "fmv.q fd, fs1", "when": "(fs2 == fs1)"}]}, {"name": "fsqrt.q", "assembly": "fd, fs1, rm", "pseudo": []}, {"name": "flq", "assembly": "fd, xs1, imm", "pseudo": []}, {"name": "fmadd.q", "assembly": "fd, fs1, fs2, fs3, rm", "pseudo": []}, {"name": "fcvt.q.d", "assembly": "fd, fs1, rm", "pseudo": []}, {"name": "fle.q", "assembly": "xd, fs1, fs2", "pseudo": []}, {"name": "flt.q", "assembly": "xd, fs1, fs2", "pseudo": []}, {"name": "fclass.q", "assembly": "xd, fs1", "pseudo": []}, {"name": "fmsub.q", "assembly": "fd, fs1, fs2, fs3, rm", "pseudo": []}, {"name": "fdiv.q", "assembly": "fd, fs1, fs2, rm", "pseudo": []}, {"name": "fsub.q", "assembly": "fd, fs1, fs2, rm", "pseudo": []}, {"name": "fcvt.wu.q", "assembly": "xd, fs1, rm", "pseudo": []}, {"name": "fcvt.q.s", "assembly": "fd, fs1, rm", "pseudo": []}, {"name": "fnmsub.q", "assembly": "fd, fs1, fs2, fs3, rm", "pseudo": []}, {"name": "fsq", "assembly": "fs2, imm(xs1)", "pseudo": []}, {"name": "fadd.q", "assembly": "fd, fs1, fs2, rm", "pseudo": []}, {"name": "fcvt.q.w", "assembly": "fd, xs1, rm", "pseudo": []}, {"name": "fsgnjn.q", "assembly": "fd, fs1, fs2", "pseudo": [{"to": "fneg.q fd, fs1", "when": "(fs2 == fs1)"}]}, {"name": "fcvt.q.wu", "assembly": "fd, xs1, rm", "pseudo": []}, {"name": "fcvt.d.q", "assembly": "fd, fs1, rm", "pseudo": []}]}, {"name": "S", "long_name": "Supervisor mode", "kind": "extension", "type": "privileged", "requires": ["U"], "instruction_count": 2, "instructions": [{"name": "sret", "assembly": "", "pseudo": []}, {"name": "sfence.vma", "assembly": "xs1, xs2", "pseudo": []}]}, {"name": "Sdext", "long_name": "Debug", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 1, "instructions": [{"name": "dret", "assembly": "", "pseudo": []}]}, {"name": "Sdtrig", "long_name": "Debug triggers", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Sha", "long_name": "Augmented hypervisor", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Shcounterenw", "long_name": "Hypervisor counter enable", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Shgatpa", "long_name": "SvNNx4 mode supported for all modes supported by Supervisor Address Translation and Protection, as well as Bare", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Shtvala", "long_name": "Hypervisor Trap Value provides all needed values", "kind": "extension", "type": "privileged", "requires": ["H"], "instruction_count": 0, "instructions": []}, {"name": "Shvsatpa", "long_name": "Virtual Supervisor Address Translation and Protection supports all modes supported by Supervisor Address Translation and Protection", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Shvstvala", "long_name": "Virtual Supervisor Trap Value provides all needed values", "kind": "extension", "type": "privileged", "requires": ["H"], "instruction_count": 0, "instructions": []}, {"name": "Shvstvecd", "long_name": "Virtual Supervisor Trap Vector Base Address supports Direct mode", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Sm", "long_name": "Machine mode", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 2, "instructions": [{"name": "mret", "assembly": "", "pseudo": []}, {"name": "wfi", "assembly": "", "pseudo": []}]}, {"name": "Smaia", "long_name": "Advanced Interrupt Architecture, M-mode extension", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Smcdeleg", "long_name": "Performance counter delegation", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Smcntrpmf", "long_name": "Cycle and Instret Privilege Mode Filtering", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Smcsrind", "long_name": "Machine-mode Indirect CSR Access", "kind": "extension", "type": "privileged", "requires": ["S"], "instruction_count": 0, "instructions": []}, {"name": "Smctr", "long_name": "Control Transfer Records", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Smdbltrp", "long_name": "Double trap in M-mode", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Smepmp", "long_name": "PMP Enhancements for memory access and execution prevention on Machine mode", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Smmpm", "long_name": "Pointer masking for M-mode", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Smnpm", "long_name": "Pointer masking for next privilege level less than M-mode", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Smpmpmt", "long_name": "PMP-based Memory Types Extension", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Smrnmi", "long_name": "Resumable Non-Maskable Interrupts", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 1, "instructions": [{"name": "mnret", "assembly": "", "pseudo": []}]}, {"name": "Smstateen", "long_name": "Machine-mode view of the state-enable extension", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Ssaia", "long_name": "Advanced Interrupt Architecture, S-mode extension", "kind": "extension", "type": "privileged", "requires": ["S"], "instruction_count": 0, "instructions": []}, {"name": "Ssccfg", "long_name": "Supervisor-mode counter configuration", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Ssccptr", "long_name": "Cacheable and coherent main memory page table reads", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Sscofpmf", "long_name": "Counter Overflow and Privilege Mode Filtering", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Sscounterenw", "long_name": "Support writeable enables for any supported counter", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Sscsrind", "long_name": "Supervisor-mode Indirect CSR Access", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Ssctr", "long_name": "Control Transfer Records", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Ssdbltrp", "long_name": "Double trap for supervisor mode", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Ssnpm", "long_name": "Pointer masking for next privilege level less than S-mode", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Sspm", "long_name": "Pointer masking available in supervisor mode", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Ssqosid", "long_name": "Quality-of-Service Identifiers", "kind": "extension", "type": "privileged", "requires": ["S"], "instruction_count": 0, "instructions": []}, {"name": "Ssstateen", "long_name": "Supervisor-mode view of the state-enable extension", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Ssstrict", "long_name": "Unimplemented reserved encodings trap and no non-conforming extensions", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Sstc", "long_name": "Supervisor-mode timer interrupts", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Sstvala", "long_name": "Supervisor Trap Value provides all needed values", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Sstvecd", "long_name": "Direct exception vectoring", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Sstvecv", "long_name": "Vectored exception handling", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Ssu32xl", "long_name": "32-bit UXLEN", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Ssu64xl", "long_name": "64-bit UXLEN", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Ssube", "long_name": "Big-endian User Mode", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Supm", "long_name": "Pointer masking available in user mode", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Sv32", "long_name": "32-bit virtual address translation (3 level)", "kind": "extension", "type": "privileged", "requires": ["S"], "instruction_count": 0, "instructions": []}, {"name": "Sv39", "long_name": "39-bit virtual address translation (3 level)", "kind": "extension", "type": "privileged", "requires": ["S"], "instruction_count": 0, "instructions": []}, {"name": "Sv48", "long_name": "48-bit virtual address translation (4 level)", "kind": "extension", "type": "privileged", "requires": ["Sv39"], "instruction_count": 0, "instructions": []}, {"name": "Sv57", "long_name": "57-bit virtual address translation (5 level)", "kind": "extension", "type": "privileged", "requires": ["Sv48"], "instruction_count": 0, "instructions": []}, {"name": "Svade", "long_name": "Exception on PTE A/D Bits", "kind": "extension", "type": "privileged", "requires": ["Sm", "Sv32", "Sv39"], "instruction_count": 0, "instructions": []}, {"name": "Svadu", "long_name": "Hardware Updating of PTE A/D Bits", "kind": "extension", "type": "privileged", "requires": ["Sm", "Sv32", "Sv39"], "instruction_count": 0, "instructions": []}, {"name": "Svbare", "long_name": "Bare virtual addressing", "kind": "extension", "type": "privileged", "requires": ["S"], "instruction_count": 0, "instructions": []}, {"name": "Svinval", "long_name": "Fine-grained address-translation cache invalidation", "kind": "extension", "type": "privileged", "requires": ["S"], "instruction_count": 3, "instructions": [{"name": "sfence.inval.ir", "assembly": "", "pseudo": []}, {"name": "sinval.vma", "assembly": "xs1, xs2", "pseudo": []}, {"name": "sfence.w.inval", "assembly": "", "pseudo": []}]}, {"name": "Svnapot", "long_name": "Naturally Aligned Power-of-Two Translation Contiguity", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Svpbmt", "long_name": "Page-based memory types", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Svrsw60t59b", "long_name": "PTE Reserved-for-Software Bits 60-59", "kind": "extension", "type": "privileged", "requires": ["Sv39"], "instruction_count": 0, "instructions": []}, {"name": "Svukte", "long_name": "Address-Independent Latency of User-Mode Faults to Supervisor Addresses", "kind": "extension", "type": "privileged", "requires": ["Sv39"], "instruction_count": 0, "instructions": []}, {"name": "Svvptc", "long_name": "Guarantee visibility of PTE transitions from invalid to valid", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "U", "long_name": "User-mode privilege level", "kind": "extension", "type": "privileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "V", "long_name": "Vector Operations", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Za128rs", "long_name": "Reservation set size of at most 128 bytes", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Za64rs", "long_name": "Reservation set size of at most 64 bytes", "kind": "extension", "type": "unprivileged", "requires": ["Za128rs"], "instruction_count": 0, "instructions": []}, {"name": "Zaamo", "long_name": "Load-acquire/Store-release atomic instructions", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 36, "instructions": [{"name": "amomin.w.rl", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amoadd.w.aq", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amoor.w.aqrl", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amoswap.w.aq", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amoand.w", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amoswap.w.aqrl", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amoadd.w.aqrl", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amoor.w", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amomax.w.rl", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amomaxu.w", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amominu.w.rl", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amominu.w", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amomin.w.aq", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amoswap.w", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amominu.w.aq", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amomax.w.aqrl", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amomin.w.aqrl", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amoadd.w", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amoor.w.rl", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amoxor.w.rl", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amomax.w", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amoxor.w.aqrl", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amoadd.w.rl", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amoor.w.aq", "assembly": "xd, xs2, (xs1)", "pseudo": []}]}, {"name": "Zabha", "long_name": "Byte and Halfword Atomic Memory Operations", "kind": "extension", "type": "unprivileged", "requires": ["Zaamo"], "instruction_count": 80, "instructions": [{"name": "amoswap.b", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amominu.h.aq", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amocas.h", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amomax.b.aq", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amomaxu.b", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amoswap.h.aqrl", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amoand.b.rl", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amominu.b", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amocas.h.aqrl", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amomaxu.b.rl", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amoadd.h.aq", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amoswap.b.rl", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amomaxu.h.rl", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amoand.b.aq", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amocas.b", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amomax.h", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amominu.b.aqrl", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amominu.h", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amoswap.h", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amoand.b", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amoswap.h.aq", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amomin.b.rl", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amomaxu.b.aq", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amoswap.b.aq", "assembly": "xd, xs2, (xs1)", "pseudo": []}]}, {"name": "Zacas", "long_name": "Atomic Compare-and-Swap (CAS) Instructions", "kind": "extension", "type": "unprivileged", "requires": ["Zaamo"], "instruction_count": 8, "instructions": [{"name": "amocas.d.aq", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amocas.d.aqrl", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amocas.d", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amocas.d.rl", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amocas.w.aq", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amocas.w.rl", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amocas.w.aqrl", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "amocas.w", "assembly": "xd, xs2, (xs1)", "pseudo": []}]}, {"name": "Zalasr", "long_name": "Atomic Load-Acquire and Store-Release", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 16, "instructions": [{"name": "sd.rl", "assembly": "xs2, (xs1)", "pseudo": []}, {"name": "lh.aqrl", "assembly": "xd, (xs1)", "pseudo": []}, {"name": "sb.rl", "assembly": "xs2, (xs1)", "pseudo": []}, {"name": "sh.rl", "assembly": "xs2, (xs1)", "pseudo": []}, {"name": "sd.aqrl", "assembly": "xs2, (xs1)", "pseudo": []}, {"name": "lw.aq", "assembly": "xd, (xs1)", "pseudo": []}, {"name": "lh.aq", "assembly": "xd, (xs1)", "pseudo": []}, {"name": "ld.aqrl", "assembly": "xd, (xs1)", "pseudo": []}, {"name": "sw.aqrl", "assembly": "xs2, (xs1)", "pseudo": []}, {"name": "lb.aq", "assembly": "xd, (xs1)", "pseudo": []}, {"name": "lw.aqrl", "assembly": "xd, (xs1)", "pseudo": []}, {"name": "sh.aqrl", "assembly": "xs2, (xs1)", "pseudo": []}, {"name": "ld.aq", "assembly": "xd, (xs1)", "pseudo": []}, {"name": "sb.aqrl", "assembly": "xs2, (xs1)", "pseudo": []}, {"name": "sw.rl", "assembly": "xs2, (xs1)", "pseudo": []}, {"name": "lb.aqrl", "assembly": "xd, (xs1)", "pseudo": []}]}, {"name": "Zalrsc", "long_name": "Load-Reserved/Store-Conditional Instructions", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 8, "instructions": [{"name": "sc.w", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "sc.w.aqrl", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "lr.w.rl", "assembly": "xd, (xs1)", "pseudo": []}, {"name": "sc.w.rl", "assembly": "xd, xs2, (xs1)", "pseudo": []}, {"name": "lr.w.aq", "assembly": "xd, (xs1)", "pseudo": []}, {"name": "lr.w.aqrl", "assembly": "xd, (xs1)", "pseudo": []}, {"name": "lr.w", "assembly": "xd, (xs1)", "pseudo": []}, {"name": "sc.w.aq", "assembly": "xd, xs2, (xs1)", "pseudo": []}]}, {"name": "Zama16b", "long_name": "Misaligned load/store/AMO within aligned 16-byte boundaries are atomic", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Zawrs", "long_name": "Wait-on-Reservation-Set Instructions", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 2, "instructions": [{"name": "wrs.sto", "assembly": "", "pseudo": []}, {"name": "wrs.nto", "assembly": "", "pseudo": []}]}, {"name": "Zba", "long_name": "Address generation", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 3, "instructions": [{"name": "sh3add", "assembly": "xd, xs1, xs2", "pseudo": []}, {"name": "sh2add", "assembly": "xd, xs1, xs2", "pseudo": []}, {"name": "sh1add", "assembly": "xd, xs1, xs2", "pseudo": []}]}, {"name": "Zbb", "long_name": "Basic bit-manipulation", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 10, "instructions": [{"name": "sext.b", "assembly": "xd, xs1", "pseudo": []}, {"name": "min", "assembly": "xd, xs1, xs2", "pseudo": []}, {"name": "minu", "assembly": "xd, xs1, xs2", "pseudo": []}, {"name": "ctz", "assembly": "xd, xs1", "pseudo": []}, {"name": "cpop", "assembly": "xd, xs1", "pseudo": []}, {"name": "orc.b", "assembly": "xd, xs1", "pseudo": []}, {"name": "sext.h", "assembly": "xd, xs1", "pseudo": []}, {"name": "max", "assembly": "xd, xs1, xs2", "pseudo": []}, {"name": "clz", "assembly": "xd, xs1", "pseudo": []}, {"name": "maxu", "assembly": "xd, xs1, xs2", "pseudo": []}]}, {"name": "Zbc", "long_name": "Carry-less multiplication", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 1, "instructions": [{"name": "clmulr", "assembly": "xd, xs1, xs2", "pseudo": []}]}, {"name": "Zbkb", "long_name": "Bit-manipulation for Cryptography", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 3, "instructions": [{"name": "packh", "assembly": "xd, xs1, xs2", "pseudo": []}, {"name": "pack", "assembly": "xd, xs1, xs2", "pseudo": [{"to": "zext.h xd, xs1", "when": "(xs2 == 0) && (xlen() == 32)"}]}, {"name": "brev8", "assembly": "xd, xs1", "pseudo": []}]}, {"name": "Zbkc", "long_name": "Carry-less multiplication for Cryptography", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Zbkx", "long_name": "Crossbar permutations", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 2, "instructions": [{"name": "xperm4", "assembly": "xd, xs1, xs2", "pseudo": []}, {"name": "xperm8", "assembly": "xd, xs1, xs2", "pseudo": []}]}, {"name": "Zbs", "long_name": "Single-bit instructions", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 8, "instructions": [{"name": "binvi", "assembly": "xd, xs1, shamt", "pseudo": []}, {"name": "binv", "assembly": "xd, xs1, xs2", "pseudo": []}, {"name": "bext", "assembly": "xd, xs1, xs2", "pseudo": []}, {"name": "bset", "assembly": "xd, xs1, xs2", "pseudo": []}, {"name": "bseti", "assembly": "xd, xs1, shamt", "pseudo": []}, {"name": "bclr", "assembly": "xd, xs1, xs2", "pseudo": []}, {"name": "bclri", "assembly": "xd, xs1, shamt", "pseudo": []}, {"name": "bexti", "assembly": "xd, xs1, shamt", "pseudo": []}]}, {"name": "Zca", "long_name": "C instructions excluding floating-point loads/stores", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 26, "instructions": [{"name": "c.swsp", "assembly": "xs2, imm(sp)", "pseudo": []}, {"name": "c.addi", "assembly": "xd, imm", "pseudo": []}, {"name": "c.lui", "assembly": "xd, imm", "pseudo": []}, {"name": "c.sub", "assembly": "xd, xs2", "pseudo": []}, {"name": "c.jr", "assembly": "xs1", "pseudo": []}, {"name": "c.jalr", "assembly": "xs1", "pseudo": []}, {"name": "c.li", "assembly": "xd, imm", "pseudo": []}, {"name": "c.slli", "assembly": "xd, shamt", "pseudo": []}, {"name": "c.lw", "assembly": "xd, imm(xs1)", "pseudo": []}, {"name": "c.beqz", "assembly": "xs1, imm", "pseudo": []}, {"name": "c.addi4spn", "assembly": "xd, sp, imm", "pseudo": []}, {"name": "c.sw", "assembly": "xs2, imm(xs1)", "pseudo": []}, {"name": "c.xor", "assembly": "xd, xs2", "pseudo": []}, {"name": "c.add", "assembly": "xd, xs2", "pseudo": []}, {"name": "c.and", "assembly": "xd, xs2", "pseudo": []}, {"name": "c.ebreak", "assembly": "", "pseudo": []}, {"name": "c.srli", "assembly": "xd, shamt", "pseudo": []}, {"name": "c.srai", "assembly": "xd, shamt", "pseudo": []}, {"name": "c.nop", "assembly": "", "pseudo": []}, {"name": "c.andi", "assembly": "xd, imm", "pseudo": []}, {"name": "c.bnez", "assembly": "xs1, imm", "pseudo": []}, {"name": "c.lwsp", "assembly": "xd, imm(sp)", "pseudo": []}, {"name": "c.mv", "assembly": "xd, xs2", "pseudo": []}, {"name": "c.or", "assembly": "xd, xs2", "pseudo": []}]}, {"name": "Zcb", "long_name": "Simple code-size saving instructions", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 6, "instructions": [{"name": "c.not", "assembly": "xd", "pseudo": []}, {"name": "c.lbu", "assembly": "xd, imm(xs1)", "pseudo": []}, {"name": "c.lhu", "assembly": "xd, imm(xs1)", "pseudo": []}, {"name": "c.sb", "assembly": "xs2, imm(xs1)", "pseudo": []}, {"name": "c.lh", "assembly": "xd, imm(xs1)", "pseudo": []}, {"name": "c.sh", "assembly": "xs2, imm(xs1)", "pseudo": []}]}, {"name": "Zcd", "long_name": "Compressed double-precision floating-point loads/stores", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 4, "instructions": [{"name": "c.fsdsp", "assembly": "fs2, imm(sp)", "pseudo": []}, {"name": "c.fldsp", "assembly": "fd, imm(sp)", "pseudo": []}, {"name": "c.fsd", "assembly": "fs2, imm(xs1)", "pseudo": []}, {"name": "c.fld", "assembly": "fd, imm(xs1)", "pseudo": []}]}, {"name": "Zce", "long_name": "Compressed instructions for microcontrollers", "kind": "extension", "type": "unprivileged", "requires": ["Zcd"], "instruction_count": 0, "instructions": []}, {"name": "Zcf", "long_name": "Compressed single-precision floating-point loads/stores", "kind": "extension", "type": "unprivileged", "requires": ["F", "Zca"], "instruction_count": 4, "instructions": [{"name": "c.flwsp", "assembly": "fd, imm(sp)", "pseudo": []}, {"name": "c.flw", "assembly": "fd, imm(xs1)", "pseudo": []}, {"name": "c.fswsp", "assembly": "fs2, imm(sp)", "pseudo": []}, {"name": "c.fsw", "assembly": "fs2, imm(xs1)", "pseudo": []}]}, {"name": "Zclsd", "long_name": "Compressed Load/Store Pair for RV32", "kind": "extension", "type": "unprivileged", "requires": ["Zcf"], "instruction_count": 0, "instructions": []}, {"name": "Zcmop", "long_name": "Compressed May-Be-Operations", "kind": "extension", "type": "unprivileged", "requires": ["Zca"], "instruction_count": 8, "instructions": [{"name": "c.mop.15", "assembly": "", "pseudo": []}, {"name": "c.mop.11", "assembly": "", "pseudo": []}, {"name": "c.mop.3", "assembly": "", "pseudo": []}, {"name": "c.mop.9", "assembly": "", "pseudo": []}, {"name": "c.mop.1", "assembly": "", "pseudo": []}, {"name": "c.mop.5", "assembly": "", "pseudo": []}, {"name": "c.mop.13", "assembly": "", "pseudo": []}, {"name": "c.mop.7", "assembly": "", "pseudo": []}]}, {"name": "Zcmp", "long_name": "Complex PUSH/POP and Double Move", "kind": "extension", "type": "unprivileged", "requires": ["Zca", "Zcd"], "instruction_count": 6, "instructions": [{"name": "cm.push", "assembly": "{reg_list}, -stack_adj", "pseudo": []}, {"name": "cm.popret", "assembly": "{reg_list}, stack_adj", "pseudo": []}, {"name": "cm.popretz", "assembly": "{reg_list}, stack_adj", "pseudo": []}, {"name": "cm.mva01s", "assembly": "r1s, r2s", "pseudo": []}, {"name": "cm.pop", "assembly": "{reg_list}, stack_adj", "pseudo": []}, {"name": "cm.mvsa01", "assembly": "r1s, r2s", "pseudo": []}]}, {"name": "Zcmt", "long_name": "Table Jump", "kind": "extension", "type": "unprivileged", "requires": ["Zcd"], "instruction_count": 2, "instructions": [{"name": "cm.jt", "assembly": "index", "pseudo": []}, {"name": "cm.jalt", "assembly": "index", "pseudo": []}]}, {"name": "Zdinx", "long_name": "Double-precision floating-point instructions using integer registers", "kind": "extension", "type": "unprivileged", "requires": ["Zfinx"], "instruction_count": 0, "instructions": []}, {"name": "Zfa", "long_name": "Additional Floating-Point Instructions", "kind": "extension", "type": "unprivileged", "requires": ["F"], "instruction_count": 7, "instructions": [{"name": "fltq.s", "assembly": "xd, fs1, fs2", "pseudo": []}, {"name": "fleq.s", "assembly": "xd, fs1, fs2", "pseudo": []}, {"name": "froundnx.s", "assembly": "fd, fs1, rm", "pseudo": []}, {"name": "fround.s", "assembly": "fd, fs1, rm", "pseudo": []}, {"name": "fli.s", "assembly": "fd, xs1", "pseudo": []}, {"name": "fminm.s", "assembly": "fd, fs1, fs2", "pseudo": []}, {"name": "fmaxm.s", "assembly": "fd, fs1, fs2", "pseudo": []}]}, {"name": "Zfbfmin", "long_name": "Scalar BF16 Converts", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 2, "instructions": [{"name": "fcvt.bf16.s", "assembly": "fd, fs1, rm", "pseudo": []}, {"name": "fcvt.s.bf16", "assembly": "fd, fs1, rm", "pseudo": []}]}, {"name": "Zfh", "long_name": "Half-precision floating point", "kind": "extension", "type": "unprivileged", "requires": ["Zfhmin"], "instruction_count": 0, "instructions": []}, {"name": "Zfhmin", "long_name": "Minimal half-precision floating-point", "kind": "extension", "type": "unprivileged", "requires": ["F"], "instruction_count": 4, "instructions": [{"name": "fsh", "assembly": "fs2, imm(xs1)", "pseudo": []}, {"name": "fmv.x.h", "assembly": "xd, fs1", "pseudo": []}, {"name": "flh", "assembly": "fd, imm(xs1)", "pseudo": []}, {"name": "fmv.h.x", "assembly": "fd, xs1", "pseudo": []}]}, {"name": "Zfinx", "long_name": "Single-precision floating-point instructions using integer registers", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Zhinx", "long_name": "Half-precision floating-point instructions using integer registers", "kind": "extension", "type": "unprivileged", "requires": ["Zhinxmin"], "instruction_count": 0, "instructions": []}, {"name": "Zhinxmin", "long_name": "Minimal support for half-precision floating-point instructions using integer registers", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Zic64b", "long_name": "64-byte cache blocks", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Zicbom", "long_name": "Cache-block management instructions", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 3, "instructions": [{"name": "cbo.inval", "assembly": "(xs1)", "pseudo": []}, {"name": "cbo.clean", "assembly": "(xs1)", "pseudo": []}, {"name": "cbo.flush", "assembly": "(xs1)", "pseudo": []}]}, {"name": "Zicbop", "long_name": "Cache-block prefetch", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 3, "instructions": [{"name": "prefetch.r", "assembly": "imm(xs1)", "pseudo": []}, {"name": "prefetch.i", "assembly": "imm(xs1)", "pseudo": []}, {"name": "prefetch.w", "assembly": "imm(xs1)", "pseudo": []}]}, {"name": "Zicboz", "long_name": "Cache-block zero instruction", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 1, "instructions": [{"name": "cbo.zero", "assembly": "(xs1)", "pseudo": []}]}, {"name": "Ziccamoa", "long_name": "Main memory supports all atomics in A extension", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Ziccamoc", "long_name": "Cacheable and coherent PMAs provide `AMOCASQ` level PMA support", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Ziccif", "long_name": "Main memory supports instruction fetch with atomicity requirement", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Zicclsm", "long_name": "Main memory supports misaligned loads/stores", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Ziccrse", "long_name": "Main memory supports forward progress on LR/SC sequences", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Zicfilp", "long_name": "Landing Pad", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 1, "instructions": [{"name": "lpad", "assembly": "imm", "pseudo": []}]}, {"name": "Zicfiss", "long_name": "Shadow Stack", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 7, "instructions": [{"name": "sspush.x5", "assembly": "sspush_x5", "pseudo": []}, {"name": "sspush.x1", "assembly": "sspush_x1", "pseudo": []}, {"name": "ssamoswap.d", "assembly": "xd, xs2, xs1", "pseudo": []}, {"name": "sspopchk.x1", "assembly": "sspopchk_x1", "pseudo": []}, {"name": "sspopchk.x5", "assembly": "sspopchk_x5", "pseudo": []}, {"name": "ssrdp", "assembly": "xd", "pseudo": []}, {"name": "ssamoswap.w", "assembly": "xd, xs2, xs1", "pseudo": []}]}, {"name": "Zicntr", "long_name": "Base Counters and Timers", "kind": "extension", "type": "unprivileged", "requires": ["Zicsr"], "instruction_count": 0, "instructions": []}, {"name": "Zicond", "long_name": "Integer Conditional Operations", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 2, "instructions": [{"name": "czero.nez", "assembly": "xd, xs1, xs2", "pseudo": []}, {"name": "czero.eqz", "assembly": "xd, xs1, xs2", "pseudo": []}]}, {"name": "Zicsr", "long_name": "Control and status register instructions", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 6, "instructions": [{"name": "csrrci", "assembly": "xd, csr, imm", "pseudo": [{"to": "csrci csr, imm", "when": "xd == 0"}]}, {"name": "csrrw", "assembly": "xd, csr, xs1", "pseudo": [{"to": "csrw csr, xs1", "when": "xd == 0"}]}, {"name": "csrrs", "assembly": "xd, csr, xs1", "pseudo": [{"to": "frflags xd", "when": "xs1 == 0 && csr == 0x001"}, {"to": "frrm xd", "when": "xs1 == 0 && csr == 0x002"}]}, {"name": "csrrc", "assembly": "xd, csr, xs1", "pseudo": [{"to": "csrc csr, xs1", "when": "xd == 0"}]}, {"name": "csrrsi", "assembly": "xd, csr, imm", "pseudo": [{"to": "csrsi csr, imm", "when": "xd == 0"}]}, {"name": "csrrwi", "assembly": "xd, csr, imm", "pseudo": [{"to": "csrwi csr, imm", "when": "xd == 0"}]}]}, {"name": "Zifencei", "long_name": "Instruction fence", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 1, "instructions": [{"name": "fence.i", "assembly": "", "pseudo": []}]}, {"name": "Zihintntl", "long_name": "Non-Temporal Locality Hints", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 4, "instructions": [{"name": "ntl.pall", "assembly": "", "pseudo": []}, {"name": "ntl.s1", "assembly": "", "pseudo": []}, {"name": "ntl.all", "assembly": "", "pseudo": []}, {"name": "ntl.p1", "assembly": "", "pseudo": []}]}, {"name": "Zihintpause", "long_name": "Pause Hint", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 1, "instructions": [{"name": "pause", "assembly": "", "pseudo": []}]}, {"name": "Zihpm", "long_name": "Hardware Performance Counters", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Zilsd", "long_name": "Load/Store Pair for RV32", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Zimop", "long_name": "May-Be-Operations", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 40, "instructions": [{"name": "mop.r.6", "assembly": "xd, xs1", "pseudo": []}, {"name": "mop.r.28", "assembly": "xd, xs1", "pseudo": []}, {"name": "mop.r.14", "assembly": "xd, xs1", "pseudo": []}, {"name": "mop.rr.4", "assembly": "xd, xs1, xs2", "pseudo": []}, {"name": "mop.r.19", "assembly": "xd, xs1", "pseudo": []}, {"name": "mop.r.25", "assembly": "xd, xs1", "pseudo": []}, {"name": "mop.r.21", "assembly": "xd, xs1", "pseudo": []}, {"name": "mop.r.17", "assembly": "xd, xs1", "pseudo": []}, {"name": "mop.r.10", "assembly": "xd, xs1", "pseudo": []}, {"name": "mop.rr.0", "assembly": "xd, xs1, xs2", "pseudo": []}, {"name": "mop.r.8", "assembly": "xd, xs1", "pseudo": []}, {"name": "mop.r.11", "assembly": "xd, xs1", "pseudo": []}, {"name": "mop.rr.5", "assembly": "xd, xs1, xs2", "pseudo": []}, {"name": "mop.r.12", "assembly": "xd, xs1", "pseudo": []}, {"name": "mop.r.5", "assembly": "xd, xs1", "pseudo": []}, {"name": "mop.r.30", "assembly": "xd, xs1", "pseudo": []}, {"name": "mop.rr.3", "assembly": "xd, xs1, xs2", "pseudo": []}, {"name": "mop.r.2", "assembly": "xd, xs1", "pseudo": []}, {"name": "mop.r.0", "assembly": "xd, xs1", "pseudo": []}, {"name": "mop.r.16", "assembly": "xd, xs1", "pseudo": []}, {"name": "mop.r.15", "assembly": "xd, xs1", "pseudo": []}, {"name": "mop.r.13", "assembly": "xd, xs1", "pseudo": []}, {"name": "mop.rr.6", "assembly": "xd, xs1, xs2", "pseudo": []}, {"name": "mop.r.22", "assembly": "xd, xs1", "pseudo": []}]}, {"name": "Zk", "long_name": "Standard Cryptography Extensions", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Zkn", "long_name": "NIST Algorithm Suite", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Zknd", "long_name": "NIST Suite: AES Decryption", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Zkne", "long_name": "NIST Suite: AES Encryption", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Zknh", "long_name": "NIST Suite: SHA2 Hashing", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 4, "instructions": [{"name": "sha256sum1", "assembly": "xd, xs1", "pseudo": []}, {"name": "sha256sig0", "assembly": "xd, xs1", "pseudo": []}, {"name": "sha256sig1", "assembly": "xd, xs1", "pseudo": []}, {"name": "sha256sum0", "assembly": "xd, xs1", "pseudo": []}]}, {"name": "Zkr", "long_name": "Entropy Source", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Zks", "long_name": "ShangMi Algorithm Suite", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Zksed", "long_name": "ShangMi Suite: SM4 Block Cipher Instructions", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 2, "instructions": [{"name": "sm4ed", "assembly": "xd, xs1, xs2, bs", "pseudo": []}, {"name": "sm4ks", "assembly": "xd, xs1, xs2, bs", "pseudo": []}]}, {"name": "Zksh", "long_name": "ShangMi Suite: SM3 Hash Function Instructions", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 2, "instructions": [{"name": "sm3p1", "assembly": "xd, xs1", "pseudo": []}, {"name": "sm3p0", "assembly": "xd, xs1", "pseudo": []}]}, {"name": "Zkt", "long_name": "Data-independent execution latency", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Zmmul", "long_name": "Integer multiplication", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Ztso", "long_name": "Total Store Ordering", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Zvbb", "long_name": "Vector Basic Bit-manipulation", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 16, "instructions": [{"name": "vbrev.v", "assembly": "vd, vs2, vm", "pseudo": []}, {"name": "vandn.vx", "assembly": "vd, vs2, xs1, vm", "pseudo": []}, {"name": "vror.vi", "assembly": "vd, vs2, imm, vm", "pseudo": []}, {"name": "vctz.v", "assembly": "vd, vs2, vm", "pseudo": []}, {"name": "vclz.v", "assembly": "vd, vs2, vm", "pseudo": []}, {"name": "vwsll.vx", "assembly": "vd, vs2, xs1, vm", "pseudo": []}, {"name": "vcpop.v", "assembly": "vd, vs2, vm", "pseudo": []}, {"name": "vror.vv", "assembly": "vd, vs2, vs1, vm", "pseudo": []}, {"name": "vror.vx", "assembly": "vd, vs2, xs1, vm", "pseudo": []}, {"name": "vrol.vv", "assembly": "vd, vs2, vs1, vm", "pseudo": []}, {"name": "vandn.vv", "assembly": "vd, vs2, vs1, vm", "pseudo": []}, {"name": "vwsll.vi", "assembly": "vd, vs2, imm, vm", "pseudo": []}, {"name": "vbrev8.v", "assembly": "vd, vs2, vm", "pseudo": []}, {"name": "vrol.vx", "assembly": "vd, vs2, xs1, vm", "pseudo": []}, {"name": "vwsll.vv", "assembly": "vd, vs2, vs1, vm", "pseudo": []}, {"name": "vrev8.v", "assembly": "vd, vs2, vm", "pseudo": []}]}, {"name": "Zvbc", "long_name": "Vector Carryless Multiplication", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 4, "instructions": [{"name": "vclmul.vv", "assembly": "vd, vs2, vs1, vm", "pseudo": []}, {"name": "vclmulh.vx", "assembly": "vd, vs2, xs1, vm", "pseudo": []}, {"name": "vclmulh.vv", "assembly": "vd, vs2, vs1, vm", "pseudo": []}, {"name": "vclmul.vx", "assembly": "vd, vs2, xs1, vm", "pseudo": []}]}, {"name": "Zve32f", "long_name": "Vector Extension for Minimal Single-Precision Embedded Floating-Point", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Zve32x", "long_name": "Vector Extension for Minimal Vector Register Length of 32 Bits", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Zve64d", "long_name": "Vector Extension for Minimal Double-Precision Embedded Floating-Point", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Zve64f", "long_name": "Vector Extension for Minimal Single-Precision Embedded Floating-Point", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Zve64x", "long_name": "Vector Extension for Minimal Vector Register Length of 64 Bits", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Zvfbfmin", "long_name": "Vector BF16 Converts", "kind": "extension", "type": "unprivileged", "requires": ["Zve32f"], "instruction_count": 2, "instructions": [{"name": "vfwcvtbf16.f.f.v", "assembly": "vd, vs2, vm", "pseudo": []}, {"name": "vfncvtbf16.f.f.w", "assembly": "vd, vs2, vm", "pseudo": []}]}, {"name": "Zvfbfwma", "long_name": "Vector BF16 widening mul-add", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 2, "instructions": [{"name": "vfwmaccbf16.vv", "assembly": "vd, vs1, vs2, vm", "pseudo": []}, {"name": "vfwmaccbf16.vf", "assembly": "vd, fs1, vs2, vm", "pseudo": []}]}, {"name": "Zvfh", "long_name": "Vector Extension for Half-Precision Floating-Point", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Zvfhmin", "long_name": "Vector Extension for Minimal Half-Precision Floating-Point", "kind": "extension", "type": "unprivileged", "requires": ["Zve32f"], "instruction_count": 0, "instructions": []}, {"name": "Zvkb", "long_name": "Vector Cryptography Bit-manipulation", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Zvkg", "long_name": "Vector GCM/GMAC", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 2, "instructions": [{"name": "vgmul.vv", "assembly": "vd, vs2", "pseudo": []}, {"name": "vghsh.vv", "assembly": "vd, vs2, vs1", "pseudo": []}]}, {"name": "Zvkn", "long_name": "NIST Algorithm Suite", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Zvknc", "long_name": "NIST Algorithm Suite with carryless multiply", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Zvkned", "long_name": "NIST Suite: Vector AES Block Cipher", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 11, "instructions": [{"name": "vaesdm.vs", "assembly": "vd, vs2", "pseudo": []}, {"name": "vaesz.vs", "assembly": "vd, vs2", "pseudo": []}, {"name": "vaesdf.vs", "assembly": "vd, vs2", "pseudo": []}, {"name": "vaesem.vs", "assembly": "vd, vs2", "pseudo": []}, {"name": "vaesef.vs", "assembly": "vd, vs2", "pseudo": []}, {"name": "vaeskf1.vi", "assembly": "vd, vs2, imm", "pseudo": []}, {"name": "vaesef.vv", "assembly": "vd, vs2", "pseudo": []}, {"name": "vaesdf.vv", "assembly": "vd, vs2", "pseudo": []}, {"name": "vaeskf2.vi", "assembly": "vd, vs2, imm", "pseudo": []}, {"name": "vaesem.vv", "assembly": "vd, vs2", "pseudo": []}, {"name": "vaesdm.vv", "assembly": "vd, vs2", "pseudo": []}]}, {"name": "Zvkng", "long_name": "NIST Algorithm Suite with GCM", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Zvknha", "long_name": "NIST Suite: Vector SHA-2 Secure Hash (SHA-256)", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 3, "instructions": [{"name": "vsha2ms.vv", "assembly": "vd, vs2, vs1", "pseudo": []}, {"name": "vsha2cl.vv", "assembly": "vd, vs2, vs1", "pseudo": []}, {"name": "vsha2ch.vv", "assembly": "vd, vs2, vs1", "pseudo": []}]}, {"name": "Zvknhb", "long_name": "NIST Suite: Vector SHA-2 Secure Hash (SHA-256 + SHA-512)", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Zvks", "long_name": "ShangMi Algorithm Suite", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Zvksc", "long_name": "ShangMi Algorithm Suite with carryless multiplication", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Zvksed", "long_name": "ShangMi Suite: SM4 Block Cipher", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 2, "instructions": [{"name": "vsm4k.vi", "assembly": "vd, vs2, imm", "pseudo": []}, {"name": "vsm4r.vs", "assembly": "vd, vs2", "pseudo": []}]}, {"name": "Zvksg", "long_name": "ShangMi Algorithm Suite with GCM", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Zvksh", "long_name": "ShangMi Suite: SM3 Secure Hash", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 2, "instructions": [{"name": "vsm3me.vv", "assembly": "vd, vs2, vs1", "pseudo": []}, {"name": "vsm3c.vi", "assembly": "vd, vs2, imm", "pseudo": []}]}, {"name": "Zvkt", "long_name": "Vector Data-Independent Execution Latency", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 0, "instructions": []}, {"name": "Zvl1024b", "long_name": "Vector register length must be at least 1024 bits", "kind": "extension", "type": "unprivileged", "requires": ["Zvl512b"], "instruction_count": 0, "instructions": []}, {"name": "Zvl128b", "long_name": "Vector register length must be at least 128 bits", "kind": "extension", "type": "unprivileged", "requires": ["Zvl64b"], "instruction_count": 0, "instructions": []}, {"name": "Zvl256b", "long_name": "Vector register length must be at least 256 bits", "kind": "extension", "type": "unprivileged", "requires": ["Zvl128b"], "instruction_count": 0, "instructions": []}, {"name": "Zvl32b", "long_name": "Vector register length must be at least 32 bits", "kind": "extension", "type": "unprivileged", "requires": [], "instruction_count": 627, "instructions": [{"name": "vwmul.vv", "assembly": "vd, vs2, vs1, vm", "pseudo": []}, {"name": "vsuxseg6ei64.v", "assembly": "vs3, (xs1), vs2, vm", "pseudo": []}, {"name": "vmulhu.vx", "assembly": "vd, vs2, xs1, vm", "pseudo": []}, {"name": "vssra.vi", "assembly": "vd, vs2, imm, vm", "pseudo": []}, {"name": "vmsif.m", "assembly": "vd, vs2, vm", "pseudo": []}, {"name": "vssubu.vv", "assembly": "vd, vs2, vs1, vm", "pseudo": []}, {"name": "vrsub.vi", "assembly": "vd, vs2, imm, vm", "pseudo": []}, {"name": "vfredusum.vs", "assembly": "vd, vs2, vs1, vm", "pseudo": []}, {"name": "vlsseg6e32.v", "assembly": "vd, (xs1), xs2, vm", "pseudo": []}, {"name": "vloxseg5ei16.v", "assembly": "vd, (xs1), vs2, vm", "pseudo": []}, {"name": "vsuxseg6ei32.v", "assembly": "vs3, (xs1), vs2, vm", "pseudo": []}, {"name": "vlsseg7e32.v", "assembly": "vd, (xs1), xs2, vm", "pseudo": []}, {"name": "vsub.vx", "assembly": "vd, vs2, xs1, vm", "pseudo": []}, {"name": "vloxseg7ei16.v", "assembly": "vd, (xs1), vs2, vm", "pseudo": []}, {"name": "vfslide1down.vf", "assembly": "vd, vs2, fs1, vm", "pseudo": []}, {"name": "vsoxseg7ei16.v", "assembly": "vs3, (xs1), vs2, vm", "pseudo": []}, {"name": "vxor.vi", "assembly": "vd, vs2, imm, vm", "pseudo": [{"to": "vnot.v vd, vs2, vm", "when": "imm == -1"}]}, {"name": "vlsseg3e16.v", "assembly": "vd, (xs1), xs2, vm", "pseudo": []}, {"name": "vmv.v.v", "assembly": "vd, vs1", "pseudo": []}, {"name": "vfnmacc.vv", "assembly": "vd, vs1, vs2, vm", "pseudo": []}, {"name": "vluxseg7ei8.v", "assembly": "vd, (xs1), vs2, vm", "pseudo": []}, {"name": "vlseg5e64.v", "assembly": "vd, (xs1), vm", "pseudo": []}, {"name": "vl4re32.v", "assembly": "vd, (xs1)", "pseudo": []}, {"name": "vlseg7e8.v", "assembly": "vd, (xs1), vm", "pseudo": []}]}, {"name": "Zvl512b", "long_name": "Vector register length must be at least 512 bits", "kind": "extension", "type": "unprivileged", "requires": ["Zvl256b"], "instruction_count": 0, "instructions": []}, {"name": "Zvl64b", "long_name": "Vector register length must be at least 64 bits", "kind": "extension", "type": "unprivileged", "requires": ["Zvl32b"], "instruction_count": 0, "instructions": []}];
+(function(){
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var byName = {};
+  EXT_DATA.forEach(function(e){ byName[e.name.toLowerCase()] = e; });
+
+  // reverse "required by" map
+  var requiredBy = {};
+  EXT_DATA.forEach(function(e){
+    e.requires.forEach(function(r){
+      var key = r.toLowerCase();
+      (requiredBy[key] = requiredBy[key] || []).push(e.name);
+    });
+  });
+
+  // ---------- populate search / quicklinks ----------
+  var datalist = document.getElementById('ext-options');
+  EXT_DATA.forEach(function(e){
+    var opt = document.createElement('option');
+    opt.value = e.name;
+    datalist.appendChild(opt);
+  });
+
+  var quick = ['I', 'F', 'V', 'Zfa', 'Zvfbfwma', 'Zicsr', 'Ssaia'];
+  var quickWrap = document.getElementById('ext-quicklinks');
+  quick.forEach(function(name){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = name;
+    b.addEventListener('click', function(){ loadExtension(name); setActiveQuick(name); });
+    quickWrap.appendChild(b);
+  });
+  function setActiveQuick(name){
+    Array.prototype.forEach.call(quickWrap.children, function(b){
+      b.classList.toggle('active', b.textContent.toLowerCase() === name.toLowerCase());
+    });
+  }
+
+  var searchInput = document.getElementById('ext-search');
+  var statusEl = document.getElementById('search-status');
+  document.getElementById('ext-go').addEventListener('click', function(){ loadExtension(searchInput.value); });
+  searchInput.addEventListener('keydown', function(ev){ if (ev.key === 'Enter') loadExtension(searchInput.value); });
+
+  // ---------- query panel ----------
+  var queryText = document.getElementById('query-text');
+  var queryCaption = document.getElementById('query-caption');
+
+  var QUERIES = {
+    extension: function(name){
+      return { caption: "extensions WHERE name = '" + name + "'",
+        code: '<span class="k">SELECT</span> name, long_name, kind, type\n' +
+              '<span class="k">FROM</span> extensions\n' +
+              '<span class="k">WHERE</span> name = <span class="c">\'' + name + '\'</span>;' };
+    },
+    instruction: function(name, ext){
+      return { caption: "instructions WHERE name = '" + name + "'",
+        code: '<span class="k">SELECT</span> i.name, i.assembly, e.name <span class="k">AS</span> extension\n' +
+              '<span class="k">FROM</span> instructions i\n' +
+              '<span class="k">LEFT JOIN</span> extensions e <span class="k">ON</span> e.extension_id = i.extension_id\n' +
+              '<span class="k">WHERE</span> i.name = <span class="c">\'' + name + '\'</span>;' +
+              (ext ? '\n<span class="c">-- e.name = \'' + ext + '\'</span>' : '') };
+    },
+    pseudo: function(name, parent){
+      return { caption: "pseudoinstructions WHERE translation = '" + name + "'",
+        code: '<span class="k">SELECT</span> i.name, p.condition, p.translation\n' +
+              '<span class="k">FROM</span> pseudoinstructions p\n' +
+              '<span class="k">JOIN</span> instructions i <span class="k">ON</span> i.instruction_id = p.instruction_id\n' +
+              '<span class="k">WHERE</span> i.name = <span class="c">\'' + parent + '\'</span>;\n' +
+              '<span class="c">-- p.translation = \'' + name + '\'</span>' };
+    },
+    requires: function(name){
+      return { caption: "extension_requirements WHERE extension = '" + name + "'",
+        code: '<span class="k">SELECT</span> e.name <span class="k">AS</span> extension, r.required_extension\n' +
+              '<span class="k">FROM</span> extension_requirements r\n' +
+              '<span class="k">JOIN</span> extensions e <span class="k">ON</span> e.extension_id = r.extension_id\n' +
+              '<span class="k">WHERE</span> e.name = <span class="c">\'' + name + '\'</span>;' };
+    }
+  };
+
+  function showQuery(kind, args){
+    var q = QUERIES[kind].apply(null, args);
+    queryCaption.textContent = q.caption;
+    queryText.innerHTML = q.code;
+  }
+
+  // ---------- details panel ----------
+  var detailsBody = document.getElementById('details-body');
+  var detailsCaption = document.getElementById('details-caption');
+
+  function detailRow(k, v){ return '<div class="row"><span class="k">' + k + '</span><span class="v">' + v + '</span></div>'; }
+
+  function showDetails(d){
+    var html = '';
+    if (d.meta.kind === 'instruction'){
+      var inst = (byName[d.meta.ext.toLowerCase()] || { instructions: [] }).instructions.find(function(i){ return i.name === d.meta.name; });
+      detailsCaption.textContent = 'instructions';
+      html += detailRow('name', d.meta.name);
+      html += detailRow('assembly', (inst && inst.assembly) || '&mdash;');
+      html += detailRow('extension_id &rarr;', d.meta.ext);
+      html += detailRow('pseudoinstructions', (inst ? inst.pseudo.length : 0));
+    } else if (d.meta.kind === 'pseudo'){
+      detailsCaption.textContent = 'pseudoinstructions';
+      html += detailRow('translation', d.meta.name);
+      html += detailRow('instruction_id &rarr;', d.meta.parent);
+      html += detailRow('condition', d.cond || '&mdash;');
+    } else {
+      var e = byName[d.meta.name.toLowerCase()];
+      detailsCaption.textContent = 'extensions';
+      if (e){
+        html += '<p class="desc">' + (e.long_name || '') + '</p>';
+        html += detailRow('name', e.name);
+        html += detailRow('kind', e.kind || '&mdash;');
+        html += detailRow('type', e.type || '&mdash;');
+        html += detailRow('requires', e.requires.length ? e.requires.join(', ') : 'none');
+        html += detailRow('required_by', (requiredBy[e.name.toLowerCase()] || []).join(', ') || 'none');
+        html += detailRow('instructions', e.instruction_count);
+      } else {
+        html += detailRow('name', d.meta.name);
+      }
+    }
+    detailsBody.innerHTML = html;
+  }
+
+  // ---------- graph build + layout + render ----------
+  var width = 1180, height = 620;
+  var svg = d3.select('#graph').attr('viewBox', '0 0 ' + width + ' ' + height);
+  var zoomLayer = svg.append('g').attr('class', 'zoom-layer');
+  var linkLayer = zoomLayer.append('g');
+  var nodeLayer = zoomLayer.append('g');
+  var emptyText = zoomLayer.append('text').attr('class', 'empty-note').attr('x', width / 2).attr('y', height / 2).attr('text-anchor', 'middle');
+
+  var zoomBehavior = d3.zoom()
+    .scaleExtent([0.4, 3.5])
+    .on('zoom', function(event){ zoomLayer.attr('transform', event.transform); });
+  svg.call(zoomBehavior);
+
+  document.getElementById('zoom-in').addEventListener('click', function(){ svg.transition().duration(200).call(zoomBehavior.scaleBy, 1.4); });
+  document.getElementById('zoom-out').addEventListener('click', function(){ svg.transition().duration(200).call(zoomBehavior.scaleBy, 1 / 1.4); });
+  document.getElementById('zoom-reset').addEventListener('click', function(){ svg.transition().duration(300).call(zoomBehavior.transform, d3.zoomIdentity); });
+
+  var radiusByType = { root: 15, extension: 9, instruction: 5, pseudo: 5.5 };
+  function rFor(n){ return radiusByType[n.type] || 5; }
+
+  var simulation = d3.forceSimulation()
+    .force('link', d3.forceLink().id(function(d){ return d.id; })
+      .distance(function(l){ return l.kind === 'expands' ? 55 : (l.kind === 'requires' ? 150 : 100); })
+      .strength(function(l){ return l.kind === 'requires' ? 0.4 : 0.9; }))
+    .force('charge', d3.forceManyBody().strength(function(d){ return d.type === 'root' ? -260 : -110; }))
+    .force('center', d3.forceCenter(width / 2, height / 2))
+    .force('collide', d3.forceCollide(function(d){ return rFor(d) + 26; }))
+    .alphaDecay(0.02);
+
+  function dragBehavior(){
+    function started(event, d){
+      if (!event.active) simulation.alphaTarget(0.25).restart();
+      d.fx = d.x; d.fy = d.y;
+    }
+    function dragged(event, d){
+      var p = d3.pointer(event, zoomLayer.node());
+      d.fx = p[0]; d.fy = p[1];
+    }
+    function ended(event, d){
+      if (!event.active) simulation.alphaTarget(0);
+      d.fx = null; d.fy = null;
+    }
+    return d3.drag().on('start', started).on('drag', dragged).on('end', ended);
+  }
+
+  function buildGraph(ext){
+    var nodes = [];
+    var links = [];
+    function addNode(id, type, label, extra){
+      var n = { id: id, type: type, label: label };
+      if (extra) Object.assign(n, extra);
+      nodes.push(n);
+      return n;
+    }
+    function addLink(a, b, kind, label){ links.push({ source: a, target: b, kind: kind, label: label || '' }); }
+
+    var rootId = 'root';
+    addNode(rootId, 'root', ext.name, { depth: 0, full: ext.long_name, meta: { kind: 'extension', name: ext.name } });
+
+    ext.requires.forEach(function(r){
+      var id = 'req-' + r;
+      addNode(id, 'extension', r, { depth: 1, related: true, meta: { kind: 'requires', name: r } });
+      addLink(rootId, id, 'requires', 'requires');
+    });
+    (requiredBy[ext.name.toLowerCase()] || []).forEach(function(r){
+      var id = 'reqby-' + r;
+      if (!nodes.some(function(n){ return n.id === id; })){
+        addNode(id, 'extension', r, { depth: 1, related: true, meta: { kind: 'requires', name: r } });
+        addLink(id, rootId, 'requires', 'requires');
+      }
+    });
+
+    ext.instructions.forEach(function(inst){
+      var id = 'inst-' + inst.name;
+      addNode(id, 'instruction', inst.name, { depth: 1, meta: { kind: 'instruction', name: inst.name, ext: ext.name } });
+      addLink(rootId, id, 'defines', 'defines');
+      inst.pseudo.forEach(function(p, i){
+        if (!p.to) return;
+        var pid = id + '-pseudo-' + i;
+        addNode(pid, 'pseudo', p.to, { depth: 2, cond: p.when, meta: { kind: 'pseudo', name: p.to, parent: inst.name } });
+        addLink(id, pid, 'expands', 'when ' + (p.when || ''));
+      });
+    });
+
+    return { nodes: nodes, links: links, overflow: Math.max(0, ext.instruction_count - ext.instructions.length) };
+  }
+
+  var currentExt = null;
+  var linkSel, nodeSel, edgeLabelSel;
+
+  function loadExtension(rawName){
+    var name = (rawName || '').trim();
+    if (!name) return;
+    var ext = byName[name.toLowerCase()];
+    if (!ext){
+      statusEl.textContent = '"' + name + '" not found &mdash; try one of the suggestions below the search box.';
+      return;
+    }
+    statusEl.textContent = '';
+    searchInput.value = ext.name;
+    setActiveQuick(ext.name);
+    currentExt = ext;
+    svg.transition().duration(300).call(zoomBehavior.transform, d3.zoomIdentity);
+    render(ext);
+  }
+
+  function ticked(){
+    linkSel.attr('d', function(d){ return 'M' + d.source.x + ',' + d.source.y + 'L' + d.target.x + ',' + d.target.y; });
+    edgeLabelSel
+      .attr('x', function(d){ return (d.source.x + d.target.x) / 2; })
+      .attr('y', function(d){ return (d.source.y + d.target.y) / 2 - 4; });
+    nodeSel.attr('transform', function(d){ return 'translate(' + d.x + ',' + d.y + ')'; });
+  }
+
+  function render(ext){
+    var graph = buildGraph(ext);
+
+    // seed the new graph clustered near center so growth reads as an expansion, not a jump-cut
+    graph.nodes.forEach(function(n){
+      n.x = width / 2 + (Math.random() - 0.5) * 60;
+      n.y = height / 2 + (Math.random() - 0.5) * 60;
+    });
+
+    linkLayer.selectAll('*').remove();
+    nodeLayer.selectAll('*').remove();
+    emptyText.text('');
+
+    if (graph.nodes.length === 1){
+      emptyText.text(ext.name + ' has no instructions resolving to a single defining extension in the source data.');
+    }
+
+    linkSel = linkLayer.selectAll('path')
+      .data(graph.links).enter().append('path')
+      .attr('class', function(d){ return 'link link-' + d.kind; });
+
+    edgeLabelSel = linkLayer.selectAll('text')
+      .data(graph.links.filter(function(d){ return d.kind === 'requires'; })).enter().append('text')
+      .attr('class', 'edge-label')
+      .attr('text-anchor', 'middle')
+      .text(function(d){ return d.label; });
+
+    nodeSel = nodeLayer.selectAll('g')
+      .data(graph.nodes, function(d){ return d.id; }).enter().append('g')
+      .attr('class', function(d){ return 'node-shape node-' + d.type + (d.related ? ' related' : ''); });
+
+    nodeSel.append('circle').attr('r', rFor);
+
+    nodeSel.append('text')
+      .attr('class', 'node-label')
+      .attr('x', function(d){ return rFor(d) + 5; })
+      .attr('y', 3)
+      .text(function(d){ return d.label; });
+
+    nodeSel.on('click', function(event, d){
+      event.stopPropagation();
+      nodeSel.classed('selected', function(o){ return o.id === d.id; });
+      showDetails(d);
+      if (d.meta.kind === 'instruction') showQuery('instruction', [d.meta.name, d.meta.ext]);
+      else if (d.meta.kind === 'pseudo') showQuery('pseudo', [d.meta.name, d.meta.parent]);
+      else if (d.meta.kind === 'requires') showQuery('requires', [d.related ? ext.name : d.meta.name]);
+      else showQuery('extension', [d.meta.name]);
+    });
+
+    nodeSel.call(dragBehavior());
+
+    if (!reduceMotion){
+      nodeSel.style('opacity', 0).select('circle').style('transform', 'scale(0.3)');
+      linkSel.style('opacity', 0);
+      edgeLabelSel.style('opacity', 0);
+
+      nodeSel.each(function(d){
+        var delay = d.depth * 260;
+        d3.select(this).style('transition', 'opacity .45s ease ' + delay + 'ms');
+        d3.select(this).select('circle').style('transition', 'transform .45s cubic-bezier(.2,.8,.3,1.25) ' + delay + 'ms');
+      });
+      linkSel.each(function(l){
+        var delay = Math.max(l.source.depth, l.target.depth) * 260 - 90;
+        d3.select(this).style('transition', 'opacity .4s ease ' + Math.max(0, delay) + 'ms');
+      });
+      edgeLabelSel.style('transition', 'opacity .4s ease ' + (260 * 1 + 120) + 'ms');
+
+      requestAnimationFrame(function(){
+        requestAnimationFrame(function(){
+          nodeSel.style('opacity', 1).select('circle').style('transform', 'scale(1)');
+          linkSel.style('opacity', 1);
+          edgeLabelSel.style('opacity', 1);
+        });
+      });
+    }
+
+    simulation.nodes(graph.nodes).on('tick', ticked);
+    simulation.force('link').links(graph.links);
+    simulation.alpha(1).restart();
+
+    document.getElementById('ext-count').textContent =
+      graph.nodes.length + ' node' + (graph.nodes.length === 1 ? '' : 's') +
+      (graph.overflow ? ' &middot; +' + graph.overflow + ' more instructions not shown' : '') +
+      ' &middot; 164 extensions indexed';
+  }
+
+  loadExtension('F');
+  setActiveQuick('F');
+})();
+</script>
+</body>
+</html>
